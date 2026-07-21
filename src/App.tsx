@@ -283,7 +283,10 @@ function App() {
           </aside>
         </div>
       </main>
-      <footer>Made for fair journeys.</footer>
+      <footer>
+        <span>Made for fair journeys.</span>
+        <a href="https://openai.com/codex/" target="_blank" rel="noreferrer">Made with Codex</a>
+      </footer>
     </div>
   )
 }

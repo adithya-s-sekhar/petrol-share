@@ -117,7 +117,9 @@ td input[type="checkbox"]:checked::before { transform: scale(1); }
 .split-row div:nth-child(2) { display: grid; gap: 2px; }
 .split-row span { color: #9fb8af; font-size: 11px; }
 .split-row > strong { color: #95e2bb; }
-footer { padding: 24px; text-align: center; color: #8b9692; font-size: 12px; border-top: 1px solid #e0e7e2; }
+footer { display: flex; justify-content: center; gap: 8px; padding: 24px; text-align: center; color: #8b9692; font-size: 12px; border-top: 1px solid #e0e7e2; }
+footer a { color: #167451; font-weight: 700; text-underline-offset: 3px; }
+footer a:hover { color: #0f5d40; }
 
 @media (max-width: 880px) {
   .editor-grid { grid-template-columns: 1fr; }

@@ -173,6 +173,7 @@ describe('App', () => {
     await user.keyboard('{Enter}')
     expect(screen.getByLabelText('Stop 3 name')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reset trip' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Made with Codex' })).toHaveAttribute('href', 'https://openai.com/codex/')
   })
 
   it('announces validation and requires confirmation before reset', async () => {
