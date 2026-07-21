@@ -38,11 +38,18 @@ The user will be able to see the following
 - Per person split of legs they were part of.
 - Per person split of petrol cost.
 
-## Technical Architecture
+## Tech Stack
 
 - React 19 with vite framework
+- Typescript for types.
 - Tailwindcss for styling
 - Zod for validation
 - Indexeddb for storage and persistence
 - PWA with offline access. Needs to be able to install locally on iOS and Android devices.
-- Vitest test suites for the calculation engine with correctness checks.
+- Vitest test suites for the calculation engine and UI.
+
+## Deployment
+
+- Github pages on push to main.
+- CI job for unit tests.
+
