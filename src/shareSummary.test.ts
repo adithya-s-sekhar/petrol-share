@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { shareSummary } from './shareSummary'
+import { createShareMessage, shareSummary } from './shareSummary'
 
 describe('shareSummary', () => {
+  it('builds the canonical message used by both the image and share payload', () => {
+    expect(createShareMessage('https://example.com/petrol-share/')).toBe(
+      'Created with Petrol Share (https://example.com/petrol-share/)',
+    )
+  })
+
   it('shares the PNG card with the Petrol Share message and site URL', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
     const canShare = vi.fn().mockReturnValue(true)

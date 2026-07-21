@@ -234,7 +234,7 @@ function App() {
         const leg = draft.legs.find((item) => item.id === id)!
         return `${stopsById.get(leg.fromStopId)} → ${stopsById.get(leg.toStopId)}`
       })
-      const image = createSummaryImage({ result, currency: draft.fuelSettings.currency, unassignedLegNames })
+      const image = createSummaryImage({ result, currency: draft.fuelSettings.currency, unassignedLegNames, pageUrl: PUBLIC_SITE_URL })
       const shareResult = await shareSummary(image, PUBLIC_SITE_URL)
       setShareMessageCopied(shareResult.messageCopied)
       setShareStatus(shareResult.method)

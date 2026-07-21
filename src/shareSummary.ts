@@ -9,6 +9,11 @@ type SummaryImageInput = {
   result: TripResult
   currency: string
   unassignedLegNames: string[]
+  pageUrl: string
+}
+
+export function createShareMessage(pageUrl: string): string {
+  return `Created with Petrol Share (${pageUrl})`
 }
 
 function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -38,10 +43,10 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mimeType })
 }
 
-export function createSummaryImage({ result, currency, unassignedLegNames }: SummaryImageInput): File {
+export function createSummaryImage({ result, currency, unassignedLegNames, pageUrl }: SummaryImageInput): File {
   const hasWarning = unassignedLegNames.length > 0
   const contentRows = hasWarning ? Math.max(1, unassignedLegNames.length) : Math.max(1, result.people.length)
-  const cardHeight = 570 + contentRows * ROW_HEIGHT
+  const cardHeight = 650 + contentRows * ROW_HEIGHT
   const canvas = document.createElement('canvas')
   canvas.width = CARD_WIDTH
   canvas.height = cardHeight
@@ -66,7 +71,7 @@ export function createSummaryImage({ result, currency, unassignedLegNames }: Sum
 
   if (hasWarning) {
     context.fillStyle = 'rgba(235,171,51,.15)'
-    roundedRect(context, PADDING, 470, CARD_WIDTH - PADDING * 2, cardHeight - 520, 18)
+    roundedRect(context, PADDING, 470, CARD_WIDTH - PADDING * 2, cardHeight - 600, 18)
     write(context, 'Some legs have no riders', PADDING + 30, 522, { color: '#fff0c8', font: '800 27px Inter, system-ui, sans-serif' })
     unassignedLegNames.forEach((name, index) => {
       write(context, `•  ${name}`, PADDING + 30, 582 + index * ROW_HEIGHT, { color: '#ffe4a3', font: '600 27px Inter, system-ui, sans-serif' })
@@ -86,6 +91,14 @@ export function createSummaryImage({ result, currency, unassignedLegNames }: Sum
       write(context, formatCurrency(person.displayCost, currency), CARD_WIDTH - PADDING, rowY + 64, { color: '#95e2bb', font: '800 31px Inter, system-ui, sans-serif', align: 'right' })
     })
   }
+
+  context.fillStyle = 'rgba(255,255,255,.12)'
+  context.fillRect(PADDING, cardHeight - 72, CARD_WIDTH - PADDING * 2, 2)
+  write(context, createShareMessage(pageUrl), CARD_WIDTH / 2, cardHeight - 30, {
+    color: '#9fb8af',
+    font: '600 20px Inter, system-ui, sans-serif',
+    align: 'center',
+  })
 
   return dataUrlToFile(canvas.toDataURL('image/png'), 'petrol-share-summary.png')
 }
@@ -119,7 +132,7 @@ async function downloadSummary(image: File, message: string): Promise<ShareSumma
 }
 
 export async function shareSummary(image: File, pageUrl: string): Promise<ShareSummaryResult> {
-  const message = `Created with Petrol Share (${pageUrl})`
+  const message = createShareMessage(pageUrl)
   const payload: ShareData = { text: message, files: [image] }
   if (!navigator.share || (navigator.canShare && !navigator.canShare({ files: [image] }))) {
     return downloadSummary(image, message)
