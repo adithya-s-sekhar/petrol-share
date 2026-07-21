@@ -216,7 +216,7 @@ describe('App', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     render(<App />)
 
-    await user.click(await screen.findByRole('button', { name: 'Calculate split' }))
+    await user.click(await screen.findByRole('button', { name: 'Check trip details' }))
     expect(await screen.findAllByRole('alert')).not.toHaveLength(0)
     const firstStop = screen.getByLabelText('Stop 1 name')
     await waitFor(() => expect(firstStop).toHaveFocus())
