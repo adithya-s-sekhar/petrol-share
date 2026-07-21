@@ -5,6 +5,48 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('manages independent saved trips, templates, and recently deleted recovery', async ({ page }) => {
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('25')
+  await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Trips' }).click()
+  const original = page.getByRole('article', { name: 'Untitled trip' })
+  await original.getByRole('button', { name: 'Rename' }).click()
+  await page.getByLabel('Trip name').fill('Commute')
+  await page.getByRole('button', { name: 'Save name' }).click()
+
+  const commute = page.getByRole('article', { name: 'Commute', exact: true })
+  await commute.getByRole('button', { name: 'Duplicate' }).click()
+  await page.getByRole('button', { name: 'Close' }).click()
+  await page.getByLabel('Stop 1 name').fill('Gym')
+  await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Trips' }).click()
+  await page.getByRole('article', { name: 'Commute', exact: true }).getByRole('button', { name: 'Open' }).click()
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(page.getByLabel('Stop 1 name')).toHaveValue('Home')
+
+  await page.getByRole('button', { name: 'Trips' }).click()
+  await page.getByRole('article', { name: 'Commute', exact: true }).getByRole('button', { name: 'Save template' }).click()
+  const template = page.getByRole('article', { name: 'Commute template' })
+  await expect(template).toContainText('Template')
+  await template.getByRole('button', { name: 'Use template' }).click()
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(page.getByLabel('Stop 1 name')).toHaveValue('Home')
+  await expect(page.getByText('Add people to start assigning riders.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Trips' }).click()
+  await page.getByRole('article', { name: 'Commute copy' }).getByRole('button', { name: 'Delete' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Recently deleted')
+  await page.getByRole('button', { name: 'Move to Recently deleted' }).click()
+  await page.getByText('Recently deleted', { exact: true }).click()
+  const deleted = page.getByRole('heading', { name: 'Commute copy' }).locator('xpath=ancestor::article')
+  await deleted.getByRole('button', { name: 'Restore' }).click()
+  await expect(page.getByRole('article', { name: 'Commute copy' })).toContainText('Gym → Office')
+})
+
 test('keeps labels visible and switches display units without changing cost', async ({ page }) => {
   await expect(page.getByText('Stop 1', { exact: true })).toBeVisible()
   await page.getByLabel('Stop 1 name').fill('Home')
