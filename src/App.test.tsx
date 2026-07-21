@@ -241,9 +241,8 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Reset trip' })).toBeInTheDocument()
   })
 
-  it('announces validation and requires confirmation before reset', async () => {
+  it('announces validation and uses a keyboard-accessible reset dialog', async () => {
     const user = userEvent.setup()
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     render(<App />)
 
     await user.click(await screen.findByRole('button', { name: 'Check trip details' }))
@@ -254,16 +253,53 @@ describe('App', () => {
     expect(screen.getByText('At least one person is required')).toHaveAttribute('role', 'alert')
 
     await user.type(firstStop, 'Keep me')
-    await user.click(screen.getByRole('button', { name: 'Reset trip' }))
+    const resetButton = screen.getByRole('button', { name: 'Reset trip' })
+    await user.click(resetButton)
+    const dialog = screen.getByRole('alertdialog', { name: 'Reset the complete trip?' })
+    expect(dialog).toHaveAccessibleDescription(/stops, people, distances, assignments, and fuel settings/)
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.keyboard('{Escape}')
     expect(screen.getByLabelText('Stop 1 name')).toHaveValue('Keep me')
-    await user.click(screen.getByRole('button', { name: 'Reset trip' }))
+    await waitFor(() => expect(resetButton).toHaveFocus())
+
+    await user.click(resetButton)
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Reset trip' }))
     expect(screen.getByLabelText('Stop 1 name')).toHaveValue('')
-    expect(confirm).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(screen.getByLabelText('Stop 1 name')).toHaveFocus())
 
     await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 1500 })
     const stored = await loadCurrentTrip()
     expect(stored.status).toBe('restored')
     if (stored.status === 'restored') expect(stored.draft.stops.every(({ name }) => name === '')).toBe(true)
+  })
+
+  it('undoes stop and rider removal with distances and assignments restored', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'A')
+    await user.type(screen.getByLabelText('Stop 2 name'), 'B')
+    await user.click(screen.getByRole('button', { name: 'Add another stop' }))
+    await user.type(screen.getByLabelText('Stop 3 name'), 'C')
+    await user.type(screen.getByLabelText('Distance from A to B in kilometres'), '12')
+    await user.type(screen.getByLabelText('Distance from B to C in kilometres'), '23')
+    await user.click(screen.getByRole('button', { name: 'Add person' }))
+    await user.type(screen.getByLabelText('Person 1 name'), 'Asha')
+    await user.click(screen.getByLabelText('Asha rode from B to C'))
+
+    await user.click(screen.getByRole('button', { name: 'Remove stop 2' }))
+    expect(screen.queryByLabelText('Stop 3 name')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(screen.getByLabelText('Stop 2 name')).toHaveValue('B')
+    expect(screen.getByLabelText('Distance from A to B in kilometres')).toHaveValue(12)
+    expect(screen.getByLabelText('Distance from B to C in kilometres')).toHaveValue(23)
+    expect(screen.getByLabelText('Asha rode from B to C')).toBeChecked()
+
+    await user.click(screen.getByRole('button', { name: 'Remove Asha' }))
+    expect(screen.queryByLabelText('Person 1 name')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(screen.getByLabelText('Person 1 name')).toHaveValue('Asha')
+    expect(screen.getByLabelText('Asha rode from B to C')).toBeChecked()
   })
 
   it('restores a complete saved trip before showing the editor', async () => {
@@ -309,6 +345,29 @@ describe('App', () => {
     view.unmount()
     render(<App />)
     expect(await screen.findByLabelText('Stop 1 name')).toHaveValue('Rapid edits')
+  })
+
+  it('announces a save failure and lets the user retry successfully', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const firstStop = await screen.findByLabelText('Stop 1 name')
+    const open = vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+      throw new Error('Storage unavailable')
+    })
+    await user.type(firstStop, 'Retry me')
+
+    const failure = await screen.findByRole('alert', {}, { timeout: 1500 })
+    expect(failure).toHaveTextContent('Could not save changes')
+    expect(screen.getByRole('status')).toHaveTextContent('Not saved')
+    open.mockRestore()
+    await user.click(within(failure).getByRole('button', { name: 'Try saving again' }))
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Saved'), { timeout: 1500 })
+    expect(screen.queryByText('Could not save changes')).not.toBeInTheDocument()
+    const loaded = await loadCurrentTrip()
+    expect(loaded.status).toBe('restored')
+    if (loaded.status === 'restored') expect(loaded.draft.stops[0].name).toBe('Retry me')
   })
 
   it.each([

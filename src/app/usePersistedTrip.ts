@@ -10,6 +10,7 @@ export function usePersistedTrip(onRestoredCompleteTrip: () => void) {
   const [draft, setDraft] = useState<TripDraft>(() => createBlankTripDraft())
   const [hydrated, setHydrated] = useState(false)
   const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>('loading')
+  const [retryRevision, setRetryRevision] = useState(0)
   const hydratedDraftRef = useRef<string | null>(null)
   const saveSequenceRef = useRef(0)
 
@@ -55,7 +56,11 @@ export function usePersistedTrip(onRestoredCompleteTrip: () => void) {
         })
     }, AUTOSAVE_DELAY_MS)
     return () => window.clearTimeout(timeout)
-  }, [draft, hydrated])
+  }, [draft, hydrated, retryRevision])
 
-  return { draft, setDraft, hydrated, persistenceStatus }
+  function retryAutosave() {
+    if (persistenceStatus === 'error') setRetryRevision((revision) => revision + 1)
+  }
+
+  return { draft, setDraft, hydrated, persistenceStatus, retryAutosave }
 }
