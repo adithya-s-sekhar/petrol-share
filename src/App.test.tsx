@@ -183,7 +183,7 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: 'Calculate split' }))
     expect(await screen.findAllByRole('alert')).not.toHaveLength(0)
     const firstStop = screen.getByLabelText('Stop 1 name')
-    expect(firstStop).toHaveFocus()
+    await waitFor(() => expect(firstStop).toHaveFocus())
     expect(firstStop).toHaveAccessibleDescription('Stop name is required')
     expect(screen.getByText('At least one person is required')).toHaveAttribute('role', 'alert')
 
