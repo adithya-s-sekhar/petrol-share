@@ -22,6 +22,36 @@ beforeEach(async () => {
 })
 
 describe('App', () => {
+  it('shows persistent labels, driver guidance, and searchable currency descriptions', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('Stop 1')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Add person' }))
+    expect(screen.getByText('Passenger 1')).toBeVisible()
+    expect(screen.getByText('Include the driver if they share the cost.')).toBeVisible()
+    expect(screen.getByText(/Indian Rupee/)).toBeInTheDocument()
+  })
+
+  it('changes display units without changing the normalized journey cost', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'Home')
+    await user.type(screen.getByLabelText('Stop 2 name'), 'Office')
+    await user.type(screen.getByLabelText('Distance from Home to Office in kilometres'), '100')
+    await user.type(screen.getByLabelText('Fuel economy'), '10')
+    await user.type(screen.getByLabelText('Price per litre'), '100')
+    await user.click(screen.getByRole('button', { name: 'Add person' }))
+    await user.type(screen.getByLabelText('Person 1 name'), 'Asha')
+
+    expect(screen.getByText('₹1,000.00')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'US customary' }))
+    expect(screen.getByLabelText('Distance from Home to Office in miles')).toHaveValue(62.137119)
+    expect(screen.getByLabelText('Fuel economy')).toHaveValue(23.521458)
+    expect(screen.getByText('₹1,000.00')).toBeInTheDocument()
+  })
+
   it('follows the system theme and persists explicit theme choices', async () => {
     const listeners = new Set<() => void>()
     let systemIsDark = true

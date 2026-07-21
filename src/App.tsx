@@ -22,8 +22,19 @@ import {
   createBlankTripDraft,
   editableTripDraftSchema,
   formatCurrency,
+  defaultUnitSystem,
+  distanceFromKm,
+  distanceToKm,
+  economyFromKmpl,
+  economyToKmpl,
+  priceFromPerLitre,
+  priceToPerLitre,
+  unitLabels,
+  volumeFromLitres,
   type TripDraft,
+  type UnitSystem,
 } from './domain'
+import { currencyOptions } from './currencies'
 import { createSummaryImage, shareSummary } from './shareSummary'
 import { usePersistedTrip } from './app/usePersistedTrip'
 import { useThemePreference } from './app/useThemePreference'
@@ -57,10 +68,10 @@ const styles: Record<string, string> = {
   'done-button': 'mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[9px] border border-[#b7d5c6] bg-[#eaf5ef] px-4 py-2 font-extrabold text-[#176c4d] hover:bg-[#dceee5]',
   compact: '!mb-[18px]', step: 'grid size-[31px] shrink-0 place-items-center rounded-[9px] bg-[#17875e] text-[13px] font-extrabold text-white',
   'stops-list': 'mb-3.5 grid list-none gap-2.5 p-0', 'people-list': 'mb-3.5 grid gap-2.5',
-  'stop-row': 'flex items-start gap-[9px] max-[560px]:flex-wrap', 'person-row': 'flex items-start gap-[9px]',
+  'stop-row': 'grid grid-cols-[25px_minmax(0,1fr)_auto] items-end gap-[9px] max-[560px]:grid-cols-[20px_minmax(0,1fr)]', 'person-row': 'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[9px]',
   'stop-index': 'grid h-[42px] w-[25px] shrink-0 place-items-center text-[11px] font-extrabold text-[#8a9692] max-[560px]:w-5',
-  'field-grow': 'min-w-0 flex-1', 'input-with-icon': 'relative [&_svg]:pointer-events-none [&_svg]:absolute [&_svg]:left-[11px] [&_svg]:top-3 [&_svg]:text-[#7c8c86] [&_input]:pl-[38px]',
-  'row-actions': 'flex gap-1 pt-0',
+  'field-grow': 'min-w-0 flex-1', 'row-label': 'mb-1.5 block text-xs font-bold text-[#4e5f59]', 'input-with-icon': 'relative [&_svg]:pointer-events-none [&_svg]:absolute [&_svg]:left-[11px] [&_svg]:top-3 [&_svg]:text-[#7c8c86] [&_input]:pl-[38px]',
+  'row-actions': 'flex gap-1 max-[560px]:col-start-2 max-[560px]:pt-0',
   'icon-button': 'grid size-11 place-items-center rounded-lg border-0 bg-transparent p-0 text-[#5f6f69] hover:not-disabled:bg-[#e4f3eb] hover:not-disabled:text-[#116b49] active:not-disabled:bg-[#d3eadd] disabled:text-[#89948f] [&_svg]:w-4',
   'destructive-button': 'ml-1 border border-[#e8c5c1] text-[#a13c31] hover:not-disabled:!bg-[#fbecea] hover:not-disabled:!text-[#842f27] active:not-disabled:!bg-[#f5d8d4]',
   'secondary-button': 'inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] border border-dashed border-[#94c5ad] bg-[#eef7f2] px-[15px] py-[9px] font-bold text-[#177653] hover:bg-[#e4f3eb] active:bg-[#d3eadd]',
@@ -72,7 +83,8 @@ const styles: Record<string, string> = {
   'unit-input': 'relative [&_input]:pr-12 [&_input]:text-right [&>span]:absolute [&>span]:right-[11px] [&>span]:top-3 [&>span]:text-xs [&>span]:font-bold [&>span]:text-[#76837f]',
   'distance-source': 'mt-[5px] inline-block rounded-full px-[7px] py-0.5 text-[10px] font-extrabold tracking-[.2px]', 'distance-source-reused': 'bg-[#dff2e8] text-[#176c4d]', 'distance-source-manual': 'bg-[#e7ebe9] text-[#596762]',
   'field-error': 'mt-[5px] flex items-center gap-1 text-[11px] text-[#b53b31] [&_svg]:shrink-0',
-  'fuel-fields': 'grid grid-cols-[1fr_1fr_100px] gap-3 max-[560px]:grid-cols-2', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': 'max-[560px]:col-span-full',
+  'unit-picker': 'mb-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f3f7f4] p-1.5 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2 [&_button]:text-xs [&_button]:font-bold [&_button[aria-pressed=true]]:bg-white [&_button[aria-pressed=true]]:text-[#147a56] [&_button[aria-pressed=true]]:shadow-sm',
+  'fuel-fields': 'grid grid-cols-[1fr_1fr_minmax(170px,1fr)] gap-3 max-[700px]:grid-cols-2', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': 'max-[700px]:col-span-full',
   'assignment-panel': 'max-[880px]:order-none', 'assignment-scroll': '-mx-2 -mb-[5px] max-w-[calc(100%+1rem)] overflow-x-auto px-2 pb-[5px] max-[560px]:hidden',
   'assignment-cards': 'hidden gap-3 max-[560px]:grid', 'assignment-card': 'min-w-0 rounded-xl border border-[#dfe6e1] bg-[#f8faf8] p-3.5',
   'assignment-card-heading': 'mb-3 flex min-w-0 items-start justify-between gap-3 border-b border-[#e1e8e4] pb-3', 'assignment-route': 'min-w-0 text-sm font-extrabold leading-5 [&_span]:block [&_span]:break-words [&_svg]:my-1 [&_svg]:size-4 [&_svg]:text-[#82918b]',
@@ -105,6 +117,11 @@ function numberFromInput(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
 }
 
+function displayNumber(value: number | null, convert: (value: number) => number): string | number {
+  if (value === null) return ''
+  return Number(convert(value).toFixed(6))
+}
+
 function validationErrors(draft: TripDraft): ErrorMap {
   const result = editableTripDraftSchema.safeParse(draft)
   if (result.success) return {}
@@ -134,6 +151,7 @@ function App() {
   const [shareMessageCopied, setShareMessageCopied] = useState(false)
   const [mobileAssignments, setMobileAssignments] = useState(() => window.innerWidth <= 560)
   const [resultsVisible, setResultsVisible] = useState(false)
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => defaultUnitSystem())
   const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(['route', 'fuel', 'people']))
   const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
   const { draft, setDraft, hydrated, persistenceStatus } = usePersistedTrip(closeRestoredSections)
@@ -142,6 +160,8 @@ function App() {
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
+  const units = unitLabels(unitSystem)
+  const currencies = useMemo(() => currencyOptions(), [])
   const hasResult = result !== null
   const { stopsById, update, changeStops, addStop, returnToStop, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments } = useTripEditor(draft, setDraft)
   const calculationLegs = result ? draft.legs.map((leg) => {
@@ -270,7 +290,7 @@ function App() {
         <div className={classes("editor-grid")}>
           <div className={classes("editor-column")}>
             <section className={classes(`panel${openSections.has('route') ? '' : ' panel-collapsed'}`)} aria-labelledby="route-title">
-              {!openSections.has('route') ? <button ref={(node) => { if (node) sectionButtonRefs.current.route = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="route-content" onClick={() => openSection('route', `stop-${draft.stops[0].id}`)}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>{draft.stops.length} stops · {totalDistance.toLocaleString(undefined, { maximumFractionDigits: 2 })} km</p></div><ChevronDown aria-hidden="true" /></button> : <>
+              {!openSections.has('route') ? <button ref={(node) => { if (node) sectionButtonRefs.current.route = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="route-content" onClick={() => openSection('route', `stop-${draft.stops[0].id}`)}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>{draft.stops.length} stops · {distanceFromKm(totalDistance, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance}</p></div><ChevronDown aria-hidden="true" /></button> : <>
               <div className={classes("panel-heading")}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>Each stop is a distinct visit, even when its name repeats.</p></div></div>
               <div id="route-content">
               <ol className={classes("stops-list")}>
@@ -280,8 +300,8 @@ function App() {
                   return <li className={classes("stop-row")} key={stop.id}>
                     <span className={classes("stop-index")} aria-hidden="true">{index + 1}</span>
                     <div className={classes("field-grow")}>
-                      <label className={classes("sr-only")} htmlFor={`stop-${stop.id}`}>Stop {index + 1} name</label>
-                      <div className={classes("input-with-icon")}><MapPin size={18} /><input id={`stop-${stop.id}`} value={stop.name} placeholder={index === 0 ? 'Starting point' : 'Next stop'} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => changeStops(draft.stops.map((item) => item.id === stop.id ? { ...item, name: event.target.value } : item))} /></div>
+                      <label className={classes("row-label")} htmlFor={`stop-${stop.id}`}>Stop {index + 1}</label>
+                      <div className={classes("input-with-icon")}><MapPin size={18} /><input id={`stop-${stop.id}`} aria-label={`Stop ${index + 1} name`} value={stop.name} placeholder={index === 0 ? 'Starting point' : 'Next stop'} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => changeStops(draft.stops.map((item) => item.id === stop.id ? { ...item, name: event.target.value } : item))} /></div>
                       <FieldError id={errorId} message={error} />
                     </div>
                     <div className={classes("row-actions")}>
@@ -297,13 +317,14 @@ function App() {
 
               <div className={classes("subsection")}>
                 <h3>Leg distances</h3>
+                <div className={classes("unit-picker")} aria-label="Display units">{([['metric', 'Metric'], ['us', 'US customary'], ['imperial', 'UK imperial']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={unitSystem === value} onClick={() => setUnitSystem(value)}>{label}</button>)}</div>
                 <div className={classes("leg-list")}>
                   {draft.legs.map((leg, index) => {
                     const error = errors[`legs.${index}.distanceKm`]
                     const errorId = `leg-${leg.id}-error`
                     return <div className={classes("leg-row")} key={leg.id}>
                       <div className={classes("leg-name")}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={16} /><span>{stopsById.get(leg.toStopId)}</span></div>
-                      <div><label className={classes("sr-only")} htmlFor={`leg-${leg.id}`}>Distance from {stopsById.get(leg.fromStopId)} to {stopsById.get(leg.toStopId)} in kilometres</label><div className={classes("unit-input")}><input id={`leg-${leg.id}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={leg.distanceKm ?? ''} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => reuseLegDistanceForBlankReverse(leg.id)} onChange={(event) => update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: numberFromInput(event.target.value), distanceSource: 'manual' } : item) })} /><span>km</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource === 'reused' ? 'reused' : 'manual'}`)}>{leg.distanceSource === 'reused' ? 'Auto-filled' : 'Manual'}</span>}<FieldError id={errorId} message={error} /></div>
+                      <div><label className={classes("row-label")} htmlFor={`leg-${leg.id}`}>Distance ({units.distance})</label><div className={classes("unit-input")}><input id={`leg-${leg.id}`} aria-label={`Distance from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)} in ${units.distanceLong}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={displayNumber(leg.distanceKm, (value) => distanceFromKm(value, unitSystem))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => reuseLegDistanceForBlankReverse(leg.id)} onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: value === null ? null : distanceToKm(value, unitSystem), distanceSource: 'manual' } : item) }) }} /><span>{units.distance}</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource === 'reused' ? 'reused' : 'manual'}`)}>{leg.distanceSource === 'reused' ? 'Auto-filled' : 'Manual'}</span>}<FieldError id={errorId} message={error} /></div>
                     </div>
                   })}
                 </div>
@@ -313,12 +334,12 @@ function App() {
             </section>
 
             <section className={classes(`panel${openSections.has('fuel') ? '' : ' panel-collapsed'}`)} aria-labelledby="fuel-title">
-              {!openSections.has('fuel') ? <button ref={(node) => { if (node) sectionButtonRefs.current.fuel = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="fuel-content" onClick={() => openSection('fuel', 'economy')}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>{draft.fuelSettings.fuelEconomyKmpl} km/L · {formatCurrency(draft.fuelSettings.fuelPricePerLitre ?? 0, draft.fuelSettings.currency)}/L</p></div><ChevronDown aria-hidden="true" /></button> : <>
+              {!openSections.has('fuel') ? <button ref={(node) => { if (node) sectionButtonRefs.current.fuel = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="fuel-content" onClick={() => openSection('fuel', 'economy')}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>{displayNumber(draft.fuelSettings.fuelEconomyKmpl, (value) => economyFromKmpl(value, unitSystem))} {units.economy} · {formatCurrency(priceFromPerLitre(draft.fuelSettings.fuelPricePerLitre ?? 0, unitSystem), draft.fuelSettings.currency)}/{units.volume}</p></div><ChevronDown aria-hidden="true" /></button> : <>
               <div className={classes("panel-heading")}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>Use the average economy for the complete journey.</p></div></div>
               <div id="fuel-content" className={classes("fuel-fields")}>
-                <div className={classes("form-field")}><label htmlFor="economy">Fuel economy</label><div className={classes("unit-input")}><input id="economy" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 15" value={draft.fuelSettings.fuelEconomyKmpl ?? ''} aria-invalid={Boolean(errors['fuelSettings.fuelEconomyKmpl'])} aria-describedby="economy-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelEconomyKmpl: numberFromInput(event.target.value) } })} /><span>km/L</span></div><FieldError id="economy-error" message={errors['fuelSettings.fuelEconomyKmpl']} /></div>
-                <div className={classes("form-field")}><label htmlFor="fuel-price">Price per litre</label><input id="fuel-price" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 105" value={draft.fuelSettings.fuelPricePerLitre ?? ''} aria-invalid={Boolean(errors['fuelSettings.fuelPricePerLitre'])} aria-describedby="price-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelPricePerLitre: numberFromInput(event.target.value) } })} /><FieldError id="price-error" message={errors['fuelSettings.fuelPricePerLitre']} /></div>
-                <div className={classes("form-field currency-field")}><label htmlFor="currency">Currency</label><input id="currency" maxLength={3} autoCapitalize="characters" value={draft.fuelSettings.currency} aria-invalid={Boolean(errors['fuelSettings.currency'])} aria-describedby="currency-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, currency: event.target.value.toUpperCase() } })} /><FieldError id="currency-error" message={errors['fuelSettings.currency']} /></div>
+                <div className={classes("form-field")}><label htmlFor="economy">Fuel economy ({units.economy})</label><div className={classes("unit-input")}><input id="economy" aria-label="Fuel economy" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 15" value={displayNumber(draft.fuelSettings.fuelEconomyKmpl, (value) => economyFromKmpl(value, unitSystem))} aria-invalid={Boolean(errors['fuelSettings.fuelEconomyKmpl'])} aria-describedby="economy-error" onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelEconomyKmpl: value === null ? null : economyToKmpl(value, unitSystem) } }) }} /><span>{units.economy}</span></div><FieldError id="economy-error" message={errors['fuelSettings.fuelEconomyKmpl']} /></div>
+                <div className={classes("form-field")}><label htmlFor="fuel-price">Price per {units.priceVolume}</label><input id="fuel-price" aria-label={unitSystem === 'metric' ? 'Price per litre' : `Price per ${units.priceVolume}`} type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 105" value={displayNumber(draft.fuelSettings.fuelPricePerLitre, (value) => priceFromPerLitre(value, unitSystem))} aria-invalid={Boolean(errors['fuelSettings.fuelPricePerLitre'])} aria-describedby="price-error" onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelPricePerLitre: value === null ? null : priceToPerLitre(value, unitSystem) } }) }} /><FieldError id="price-error" message={errors['fuelSettings.fuelPricePerLitre']} /></div>
+                <div className={classes("form-field currency-field")}><label htmlFor="currency">Currency</label><input id="currency" list="currency-options" role="combobox" autoComplete="off" value={draft.fuelSettings.currency} aria-invalid={Boolean(errors['fuelSettings.currency'])} aria-describedby="currency-help currency-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, currency: event.target.value.toUpperCase() } })} /><datalist id="currency-options">{currencies.map(({ code, symbol, name }) => <option key={code} value={code}>{symbol} · {code} · {name}</option>)}</datalist><small id="currency-help">Search by symbol, code, or currency name.</small><FieldError id="currency-error" message={errors['fuelSettings.currency']} /></div>
               </div>
               {fuelComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('fuel', 'people')}>Done with fuel details <ArrowRight size={18} /></button>}
               </>}
@@ -326,12 +347,12 @@ function App() {
 
             <section className={classes(`panel${openSections.has('people') ? '' : ' panel-collapsed'}`)} aria-labelledby="people-title">
               {!openSections.has('people') ? <button ref={(node) => { if (node) sectionButtonRefs.current.people = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="people-content" onClick={() => openSection('people', `person-${draft.people[0]?.id}`)}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>{draft.people.length} {draft.people.length === 1 ? 'rider' : 'riders'}</p></div><ChevronDown aria-hidden="true" /></button> : <>
-              <div className={classes("panel-heading")}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>Add everyone who should share the fuel cost.</p></div></div>
+              <div className={classes("panel-heading")}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>Add everyone who should share the fuel cost. <strong>Include the driver if they share the cost.</strong></p></div></div>
               <div id="people-content" className={classes("people-list")}>
                 {draft.people.map((person, index) => {
                   const error = errors[`people.${index}.name`]
                   const errorId = `person-${person.id}-error`
-                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("sr-only")} htmlFor={`person-${person.id}`}>Person {index + 1} name</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} destructive onClick={() => update({ ...draft, people: draft.people.filter(({ id }) => id !== person.id) })}><Trash2 /></IconButton></div>
+                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("row-label")} htmlFor={`person-${person.id}`}>Passenger {index + 1}</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} aria-label={`Person ${index + 1} name`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} destructive onClick={() => update({ ...draft, people: draft.people.filter(({ id }) => id !== person.id) })}><Trash2 /></IconButton></div>
                 })}
               </div>
               <button className={classes("secondary-button full-button")} type="button" onClick={addPerson}><Plus size={18} /> Add person</button>
@@ -361,9 +382,9 @@ function App() {
             <section ref={resultsRef} id="results" className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">
               <div className={classes("results-heading")}><div><span className={classes("results-kicker")}>Your split</span><h2 id="results-title">Journey summary</h2></div><Fuel /></div>
               {!result ? <div className={classes("results-empty")}><p>Complete the trip details to see your fair split. Once they are valid, the split updates automatically.</p><button className={classes("primary-button")} type="button" onClick={revealResults}>Check trip details <ArrowRight size={18} /></button></div> : <>
-                <div className={classes("totals")}><div><span>Total distance</span><strong>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km</strong></div><div><span>Fuel used</span><strong>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</strong></div><div className={classes("total-cost")}><span>Total fuel cost</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
+                <div className={classes("totals")}><div><span>Total distance</span><strong>{distanceFromKm(result.totalDistanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance}</strong></div><div><span>Fuel used</span><strong>{volumeFromLitres(result.totalLitres, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.volume}</strong></div><div className={classes("total-cost")}><span>Total fuel cost</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
                 <p className={classes("live-result-note")}>This split updates automatically as you edit trip details.</p>
-                {result.unassignedLegIds.length > 0 ? <div className={classes("notice warning-notice")} role="status"><CircleAlert /><div><strong>Some legs have no riders</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}</ul></div></div> : <div className={classes("split-list")}>{result.people.map((person) => <div className={classes("split-row")} key={person.personId}><div className={classes("avatar")} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{person.distanceKm.toLocaleString()} km · {person.legIds.length} {person.legIds.length === 1 ? 'leg' : 'legs'}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
+                {result.unassignedLegIds.length > 0 ? <div className={classes("notice warning-notice")} role="status"><CircleAlert /><div><strong>Some legs have no riders</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}</ul></div></div> : <div className={classes("split-list")}>{result.people.map((person) => <div className={classes("split-row")} key={person.personId}><div className={classes("avatar")} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{distanceFromKm(person.distanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance} · {person.legIds.length} {person.legIds.length === 1 ? 'leg' : 'legs'}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
                 <details className={classes("calculation-details")}><summary>How this was calculated <ChevronDown aria-hidden="true" /></summary><div className={classes("calculation-content")}>
                   <section><h3>Route totals and formula</h3><p>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km ÷ {draft.fuelSettings.fuelEconomyKmpl!.toLocaleString()} km/L = {result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</p><p>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L × {formatCurrency(draft.fuelSettings.fuelPricePerLitre!, draft.fuelSettings.currency)} per litre = {formatCurrency(result.totalCost, draft.fuelSettings.currency)}</p></section>
                   <div className={classes("formula-box")}>Each rider’s leg share = leg distance ÷ fuel economy × price per litre ÷ riders on that leg</div>
