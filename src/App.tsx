@@ -9,6 +9,7 @@ import {
   MapPin,
   Plus,
   RotateCcw,
+  Share2,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -22,11 +23,14 @@ import {
   type TripDraft,
 } from './domain'
 import { loadCurrentTrip, saveCurrentTrip } from './persistence/tripStorage'
+import { createSummaryImage, shareSummary } from './shareSummary'
 
 type ErrorMap = Record<string, string>
 type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'error'
+type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 
 const AUTOSAVE_DELAY_MS = 500
+const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
 const styles: Record<string, string> = {
   'sr-only': 'absolute -m-px size-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]',
@@ -67,6 +71,9 @@ const styles: Record<string, string> = {
   totals: 'grid grid-cols-2 gap-5 px-[25px] py-[22px] max-[560px]:px-5 [&>div]:grid [&>div]:gap-1 [&_span]:text-[11px] [&_span]:text-[#a9c1b8] [&_strong]:text-[17px]', 'total-cost': 'col-span-full border-t border-white/10 pt-4 [&_strong]:font-serif [&_strong]:!text-[32px] [&_strong]:font-medium [&_strong]:text-[#88dfb5]',
   notice: 'mx-[25px] mb-6 flex items-start gap-2.5 rounded-[9px] p-[13px] text-xs leading-6 [&>svg]:w-[18px] [&>svg]:shrink-0', 'warning-notice': 'border border-[#ffcf7040] bg-[#ebab3321] text-[#ffe4a3] [&_strong]:text-[#fff0c8] [&_ul]:mb-0 [&_ul]:mt-[5px] [&_ul]:pl-[17px]', 'error-notice': '!mx-0 !mb-0 mt-3 border border-[#f1c8c3] bg-[#fff0ee] text-[#a5362d]',
   'split-list': 'border-t border-white/10', 'split-row': 'grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-white/10 px-[25px] py-[15px] max-[560px]:px-5 [&>div:nth-child(2)]:grid [&>div:nth-child(2)]:gap-0.5 [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap [&_span]:text-[11px] [&_span]:text-[#9fb8af] [&>strong]:text-[#95e2bb]', avatar: 'grid size-[34px] place-items-center rounded-full bg-[#86d9b1] font-extrabold text-[#173f34]',
+  'share-area': 'border-t border-white/10 px-[25px] py-5 max-[560px]:px-5',
+  'share-button': 'inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#9be5c1]/40 bg-[#80d6ac] px-[18px] py-2.5 font-extrabold text-[#163b30] hover:not-disabled:bg-[#96e2bc]',
+  'share-status': 'mb-0 mt-2.5 text-center text-xs text-[#b8cbc4]', 'share-error': '!text-[#ffe4a3]',
   'loading-screen': 'grid min-h-screen place-content-center justify-items-center gap-3 text-[#47604f] [&_svg]:size-8',
 }
 
@@ -107,6 +114,9 @@ function App() {
   const [submitted, setSubmitted] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>('loading')
+  const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
+  const [shareError, setShareError] = useState('')
+  const [shareMessageCopied, setShareMessageCopied] = useState(false)
   const hydratedDraftRef = useRef<string | null>(null)
   const saveSequenceRef = useRef(0)
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
@@ -212,6 +222,30 @@ function App() {
   function revealResults() {
     setSubmitted(true)
     if (!parsed.success) requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+  }
+
+  async function shareResult() {
+    if (!result || shareStatus === 'sharing') return
+    setShareStatus('sharing')
+    setShareError('')
+    setShareMessageCopied(false)
+    try {
+      const unassignedLegNames = result.unassignedLegIds.map((id) => {
+        const leg = draft.legs.find((item) => item.id === id)!
+        return `${stopsById.get(leg.fromStopId)} → ${stopsById.get(leg.toStopId)}`
+      })
+      const image = createSummaryImage({ result, currency: draft.fuelSettings.currency, unassignedLegNames })
+      const shareResult = await shareSummary(image, PUBLIC_SITE_URL)
+      setShareMessageCopied(shareResult.messageCopied)
+      setShareStatus(shareResult.method)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setShareStatus('idle')
+        return
+      }
+      setShareError(error instanceof Error ? error.message : 'The summary could not be shared.')
+      setShareStatus('error')
+    }
   }
 
   if (!hydrated) {
@@ -324,6 +358,7 @@ function App() {
               {!result ? <div className={classes("results-empty")}><p>Complete the trip details to see your fair split.</p><button className={classes("primary-button")} type="button" onClick={revealResults}>Calculate split <ArrowRight size={18} /></button></div> : <>
                 <div className={classes("totals")}><div><span>Total distance</span><strong>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km</strong></div><div><span>Fuel used</span><strong>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</strong></div><div className={classes("total-cost")}><span>Total fuel cost</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
                 {result.unassignedLegIds.length > 0 ? <div className={classes("notice warning-notice")} role="status"><CircleAlert /><div><strong>Some legs have no riders</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}</ul></div></div> : <div className={classes("split-list")}>{result.people.map((person) => <div className={classes("split-row")} key={person.personId}><div className={classes("avatar")} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{person.distanceKm.toLocaleString()} km · {person.legIds.length} {person.legIds.length === 1 ? 'leg' : 'legs'}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
+                <div className={classes("share-area")}><button className={classes("share-button")} type="button" disabled={shareStatus === 'sharing'} onClick={() => void shareResult()}><Share2 size={18} />{shareStatus === 'sharing' ? 'Preparing summary…' : 'Share summary'}</button>{shareStatus === 'shared' && <p className={classes("share-status")} role="status">Summary shared.</p>}{shareStatus === 'downloaded' && <p className={classes("share-status")} role="status">Summary image downloaded.{shareMessageCopied ? ' Message copied to clipboard.' : ''}</p>}{shareStatus === 'error' && <p className={classes("share-status share-error")} role="alert">{shareError}</p>}</div>
               </>}
             </section>
           </aside>
