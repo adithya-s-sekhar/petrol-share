@@ -123,6 +123,27 @@ function App() {
     changeStops([...draft.stops, { id: createId(), name: '' }])
   }
 
+  function returnToStop(stop: TripDraft['stops'][number]) {
+    changeStops([...draft.stops, { id: createId(), name: stop.name.trim() }])
+  }
+
+  function reuseLegDistanceForBlankReverse(legId: string) {
+    const changedLeg = draft.legs.find((leg) => leg.id === legId)
+    if (!changedLeg) return
+    const fromName = stopsById.get(changedLeg.fromStopId)?.trim().toLocaleLowerCase()
+    const toName = stopsById.get(changedLeg.toStopId)?.trim().toLocaleLowerCase()
+
+    update({
+      ...draft,
+      legs: draft.legs.map((leg) => {
+        const isBlankReverse = leg.distanceKm === null
+          && stopsById.get(leg.fromStopId)?.trim().toLocaleLowerCase() === toName
+          && stopsById.get(leg.toStopId)?.trim().toLocaleLowerCase() === fromName
+        return isBlankReverse ? { ...leg, distanceKm: changedLeg.distanceKm, distanceSource: 'reused' } : leg
+      }),
+    })
+  }
+
   function moveStop(index: number, direction: -1 | 1) {
     const stops = [...draft.stops]
     const target = index + direction
@@ -159,6 +180,13 @@ function App() {
     recovered: 'Saved trip could not be restored. A new trip was started safely.',
     error: 'Could not save changes. Keep this page open and try another edit.',
   }[persistenceStatus]
+  const currentStop = draft.stops.at(-1)
+  const returnStops = draft.stops.filter((stop, index, stops) => {
+    const name = stop.name.trim().toLocaleLowerCase()
+    return name !== ''
+      && name !== currentStop?.name.trim().toLocaleLowerCase()
+      && stops.findIndex((candidate) => candidate.name.trim().toLocaleLowerCase() === name) === index
+  })
 
   return (
     <div className="app-shell">
@@ -199,6 +227,7 @@ function App() {
                 })}
               </ol>
               <button className="secondary-button full-button" type="button" onClick={addStop}><Plus size={18} /> Add another stop</button>
+              {returnStops.length > 0 && <div className="return-stops" aria-label="Return to an earlier stop"><span>Going back?</span><div>{returnStops.map((stop) => <button key={stop.id} className="return-stop-button" type="button" onClick={() => returnToStop(stop)}><RotateCcw size={15} /> Return to {stop.name.trim()}</button>)}</div><p>The known distance is reused when available, and can still be changed.</p></div>}
 
               <div className="subsection">
                 <h3>Leg distances</h3>
@@ -208,7 +237,7 @@ function App() {
                     const errorId = `leg-${leg.id}-error`
                     return <div className="leg-row" key={leg.id}>
                       <div className="leg-name"><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={16} /><span>{stopsById.get(leg.toStopId)}</span></div>
-                      <div><label className="sr-only" htmlFor={`leg-${leg.id}`}>Distance from {stopsById.get(leg.fromStopId)} to {stopsById.get(leg.toStopId)} in kilometres</label><div className="unit-input"><input id={`leg-${leg.id}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={leg.distanceKm ?? ''} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: numberFromInput(event.target.value) } : item) })} /><span>km</span></div><FieldError id={errorId} message={error} /></div>
+                      <div><label className="sr-only" htmlFor={`leg-${leg.id}`}>Distance from {stopsById.get(leg.fromStopId)} to {stopsById.get(leg.toStopId)} in kilometres</label><div className="unit-input"><input id={`leg-${leg.id}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={leg.distanceKm ?? ''} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => reuseLegDistanceForBlankReverse(leg.id)} onChange={(event) => update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: numberFromInput(event.target.value), distanceSource: 'manual' } : item) })} /><span>km</span></div>{leg.distanceKm !== null && <span className={`distance-source distance-source-${leg.distanceSource === 'reused' ? 'reused' : 'manual'}`}>{leg.distanceSource === 'reused' ? 'Auto-filled' : 'Manual'}</span>}<FieldError id={errorId} message={error} /></div>
                     </div>
                   })}
                 </div>

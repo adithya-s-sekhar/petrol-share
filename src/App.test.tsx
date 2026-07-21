@@ -35,6 +35,47 @@ describe('App', () => {
     expect(screen.getAllByLabelText(/Distance from/)).toHaveLength(4)
   })
 
+  it('adds return stops without retyping and reuses reverse distances', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'A')
+    await user.type(screen.getByLabelText('Stop 2 name'), 'B')
+    await user.type(screen.getByLabelText('Distance from A to B in kilometres'), '10')
+    await user.click(screen.getByRole('button', { name: 'Add another stop' }))
+    await user.type(screen.getByLabelText('Stop 3 name'), 'C')
+    await user.type(screen.getByLabelText('Distance from B to C in kilometres'), '20')
+
+    await user.click(screen.getByRole('button', { name: 'Return to B' }))
+    await user.click(screen.getByRole('button', { name: 'Return to A' }))
+
+    expect(screen.getByLabelText('Stop 4 name')).toHaveValue('B')
+    expect(screen.getByLabelText('Stop 5 name')).toHaveValue('A')
+    expect(screen.getByLabelText('Distance from C to B in kilometres')).toHaveValue(20)
+    expect(screen.getByLabelText('Distance from B to A in kilometres')).toHaveValue(10)
+    expect(screen.getAllByText('Auto-filled')).toHaveLength(2)
+
+    await user.clear(screen.getByLabelText('Distance from B to A in kilometres'))
+    await user.type(screen.getByLabelText('Distance from B to A in kilometres'), '11')
+    expect(screen.getAllByText('Auto-filled')).toHaveLength(1)
+    expect(screen.getAllByText('Manual')).toHaveLength(3)
+  })
+
+  it('fills a blank reverse distance when the outward distance is entered later', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'A')
+    await user.type(screen.getByLabelText('Stop 2 name'), 'B')
+    await user.click(screen.getByRole('button', { name: 'Add another stop' }))
+    await user.type(screen.getByLabelText('Stop 3 name'), 'A')
+
+    await user.type(screen.getByLabelText('Distance from A to B in kilometres'), '12')
+    await user.tab()
+
+    expect(screen.getByLabelText('Distance from B to A in kilometres')).toHaveValue(12)
+  })
+
   it('calculates totals, warns about an unassigned leg, and then shows a reconciled split', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -74,6 +115,7 @@ describe('App', () => {
 
     const distanceInputs = screen.getAllByLabelText(/Distance from .+ to .+ in kilometres/)
     for (const [index, distance] of ['10', '20', '30', '40'].entries()) {
+      await user.clear(distanceInputs[index])
       await user.type(distanceInputs[index], distance)
     }
     await user.type(screen.getByLabelText('Fuel economy'), '10')

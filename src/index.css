@@ -50,6 +50,12 @@ input[aria-invalid="true"] { border-color: #cb5347; }
 .icon-button:hover:not(:disabled) { color: #147a56; background: #edf6f1; }
 .secondary-button { min-height: 42px; padding: 9px 15px; color: #177653; background: #eef7f2; border: 1px dashed #94c5ad; border-radius: 9px; }
 .secondary-button:hover { background: #e4f3eb; }
+.return-stops { margin-top: 13px; padding: 12px; border-radius: 10px; background: #f8faf8; }
+.return-stops > span { display: block; margin-bottom: 8px; color: #52615c; font-size: 13px; font-weight: 700; }
+.return-stops > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.return-stop-button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 7px 11px; border: 1px solid #cbded4; border-radius: 999px; color: #176c4d; background: #fff; font-weight: 700; cursor: pointer; }
+.return-stop-button:hover { background: #eef7f2; }
+.return-stops p { margin-top: 8px; color: #718079; font-size: 12px; }
 .full-button { width: 100%; }
 .subsection { margin-top: 27px; padding-top: 22px; border-top: 1px solid #e6ebe8; }
 .subsection h3 { margin-bottom: 13px; font-size: 13px; text-transform: uppercase; letter-spacing: .85px; color: #66746f; }
@@ -61,6 +67,9 @@ input[aria-invalid="true"] { border-color: #cb5347; }
 .unit-input { position: relative; }
 .unit-input input { padding-right: 48px; text-align: right; }
 .unit-input span { position: absolute; right: 11px; top: 12px; color: #76837f; font-size: 12px; font-weight: 700; }
+.distance-source { display: inline-block; margin-top: 5px; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .2px; }
+.distance-source-reused { color: #176c4d; background: #dff2e8; }
+.distance-source-manual { color: #596762; background: #e7ebe9; }
 .field-error { margin: 5px 0 0; display: flex; align-items: center; gap: 5px; color: #b53b31; font-size: 11px; }
 .field-error svg { flex: 0 0 auto; }
 .fuel-fields { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 12px; }
