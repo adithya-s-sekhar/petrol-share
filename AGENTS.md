@@ -11,4 +11,5 @@
 - Read the codebase to understand what all to do
 - Create a relevant branch for the issue.
 - Implement the issue
+- Run the complete end-to-end suite locally with `pnpm test:e2e` and ensure it passes before raising a PR.
 - Commit and raise a pr against the issue.
