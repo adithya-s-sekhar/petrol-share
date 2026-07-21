@@ -73,7 +73,7 @@ For example, a JPY 100 leg shared by three people is displayed as JPY 34, JPY 33
 
 ## Validation and incomplete assignments
 
-The results action validates the whole draft. A calculable trip requires:
+The **Check trip details** action validates the whole draft. Once the draft is valid, results appear and update automatically as inputs change. A calculable trip requires:
 
 - at least two named stops and exactly one correctly ordered leg per adjacent stop pair;
 - a finite, positive distance for every leg;

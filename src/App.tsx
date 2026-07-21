@@ -86,9 +86,14 @@ const styles: Record<string, string> = {
   'results-card': 'min-w-0 max-w-full overflow-hidden rounded-[19px] bg-[#173f34] text-white shadow-[0_16px_40px_rgba(18,59,47,.18)]',
   'results-heading': 'flex items-center justify-between border-b border-white/10 px-[25px] pb-5 pt-6 max-[560px]:px-5 [&_h2]:mb-0 [&_h2]:mt-1 [&_h2]:font-serif [&_h2]:text-2xl [&_h2]:font-medium [&>svg]:w-7 [&>svg]:text-[#6ec59e]', 'results-kicker': 'text-[10px] font-extrabold uppercase tracking-[1.3px] text-[#83d0ad]',
   'results-empty': 'px-[25px] pb-[25px] pt-[31px] text-center [&_p]:text-[13px] [&_p]:leading-[1.6] [&_p]:text-[#b8cbc4]', 'primary-button': 'mt-2 inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border-0 bg-[#80d6ac] px-[18px] py-2.5 font-bold text-[#163b30] hover:bg-[#96e2bc]',
+  'live-result-note': 'mx-[25px] mb-0 border-t border-white/10 py-3 text-center text-xs text-[#b8cbc4] max-[560px]:mx-5',
   totals: 'grid grid-cols-2 gap-5 px-[25px] py-[22px] max-[560px]:px-5 [&>div]:grid [&>div]:gap-1 [&_span]:text-[11px] [&_span]:text-[#a9c1b8] [&_strong]:text-[17px]', 'total-cost': 'col-span-full border-t border-white/10 pt-4 [&_strong]:font-serif [&_strong]:!text-[32px] [&_strong]:font-medium [&_strong]:text-[#88dfb5]',
   notice: 'mx-[25px] mb-6 flex items-start gap-2.5 rounded-[9px] p-[13px] text-xs leading-6 [&>svg]:w-[18px] [&>svg]:shrink-0', 'warning-notice': 'border border-[#ffcf7040] bg-[#ebab3321] text-[#ffe4a3] [&_strong]:text-[#fff0c8] [&_ul]:mb-0 [&_ul]:mt-[5px] [&_ul]:pl-[17px]', 'error-notice': '!mx-0 !mb-0 mt-3 border border-[#f1c8c3] bg-[#fff0ee] text-[#a5362d]',
   'split-list': 'border-t border-white/10', 'split-row': 'grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-white/10 px-[25px] py-[15px] max-[560px]:px-5 [&>div:nth-child(2)]:grid [&>div:nth-child(2)]:gap-0.5 [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap [&_span]:text-[11px] [&_span]:text-[#9fb8af] [&>strong]:text-[#95e2bb]', avatar: 'grid size-[34px] place-items-center rounded-full bg-[#86d9b1] font-extrabold text-[#173f34]',
+  'calculation-details': 'border-t border-white/10 px-[25px] py-4 text-xs text-[#c4d5cf] max-[560px]:px-5 [&_summary]:flex [&_summary]:min-h-11 [&_summary]:cursor-pointer [&_summary]:items-center [&_summary]:justify-between [&_summary]:font-extrabold [&_summary]:text-white [&_summary]:marker:content-none [&_summary::-webkit-details-marker]:hidden [&_summary_svg]:transition-transform [&[open]_summary_svg]:rotate-180',
+  'calculation-content': 'grid gap-4 pb-1 pt-3 leading-5 [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:text-[#83d0ad] [&_p]:mb-0',
+  'formula-box': 'rounded-lg bg-white/[.07] p-3 font-mono text-[11px] text-[#e5f1ec]',
+  'allocation-list': 'grid gap-2', 'allocation-row': 'rounded-lg border border-white/10 p-3 [&_strong]:text-white [&_span]:mt-1 [&_span]:block [&_span]:text-[#a9c1b8]',
   'share-area': 'border-t border-white/10 px-[25px] py-5 max-[560px]:px-5',
   'share-button': 'inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#9be5c1]/40 bg-[#80d6ac] px-[18px] py-2.5 font-extrabold text-[#163b30] hover:not-disabled:bg-[#96e2bc]',
   'share-status': 'mb-0 mt-2.5 text-center text-xs text-[#b8cbc4]', 'share-error': '!text-[#ffe4a3]',
@@ -153,6 +158,11 @@ function App() {
   const result = parsed.success ? calculateTrip(parsed.data) : null
   const hasResult = result !== null
   const stopsById = new Map(draft.stops.map((stop) => [stop.id, stop.name || 'Unnamed stop']))
+  const calculationLegs = result ? draft.legs.map((leg) => {
+    const riders = draft.people.filter((person) => person.assignedLegIds.includes(leg.id))
+    const cost = (leg.distanceKm ?? 0) / draft.fuelSettings.fuelEconomyKmpl! * draft.fuelSettings.fuelPricePerLitre!
+    return { leg, riders, cost }
+  }) : []
 
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -496,9 +506,16 @@ function App() {
 
             <section ref={resultsRef} id="results" className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">
               <div className={classes("results-heading")}><div><span className={classes("results-kicker")}>Your split</span><h2 id="results-title">Journey summary</h2></div><Fuel /></div>
-              {!result ? <div className={classes("results-empty")}><p>Complete the trip details to see your fair split.</p><button className={classes("primary-button")} type="button" onClick={revealResults}>Calculate split <ArrowRight size={18} /></button></div> : <>
+              {!result ? <div className={classes("results-empty")}><p>Complete the trip details to see your fair split. Once they are valid, the split updates automatically.</p><button className={classes("primary-button")} type="button" onClick={revealResults}>Check trip details <ArrowRight size={18} /></button></div> : <>
                 <div className={classes("totals")}><div><span>Total distance</span><strong>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km</strong></div><div><span>Fuel used</span><strong>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</strong></div><div className={classes("total-cost")}><span>Total fuel cost</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
+                <p className={classes("live-result-note")}>This split updates automatically as you edit trip details.</p>
                 {result.unassignedLegIds.length > 0 ? <div className={classes("notice warning-notice")} role="status"><CircleAlert /><div><strong>Some legs have no riders</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}</ul></div></div> : <div className={classes("split-list")}>{result.people.map((person) => <div className={classes("split-row")} key={person.personId}><div className={classes("avatar")} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{person.distanceKm.toLocaleString()} km · {person.legIds.length} {person.legIds.length === 1 ? 'leg' : 'legs'}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
+                <details className={classes("calculation-details")}><summary>How this was calculated <ChevronDown aria-hidden="true" /></summary><div className={classes("calculation-content")}>
+                  <section><h3>Route totals and formula</h3><p>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km ÷ {draft.fuelSettings.fuelEconomyKmpl!.toLocaleString()} km/L = {result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</p><p>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L × {formatCurrency(draft.fuelSettings.fuelPricePerLitre!, draft.fuelSettings.currency)} per litre = {formatCurrency(result.totalCost, draft.fuelSettings.currency)}</p></section>
+                  <div className={classes("formula-box")}>Each rider’s leg share = leg distance ÷ fuel economy × price per litre ÷ riders on that leg</div>
+                  <section><h3>Per-leg allocation</h3><div className={classes("allocation-list")}>{calculationLegs.map(({ leg, riders, cost }) => <div className={classes("allocation-row")} key={leg.id}><strong>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</strong><span>{leg.distanceKm!.toLocaleString()} km · {formatCurrency(cost, draft.fuelSettings.currency)} · {riders.length === 0 ? 'No riders assigned' : `${formatCurrency(cost / riders.length, draft.fuelSettings.currency)} each for ${riders.map(({ name }) => name).join(', ')}`}</span></div>)}</div></section>
+                  <section><h3>Rounding</h3><p>Calculations keep full precision. Displayed shares use the currency’s minor units, then any leftover units go to the largest fractional remainders (ties follow rider order) so the displayed shares add up exactly to the rounded total.</p></section>
+                </div></details>
                 <div className={classes("share-area")}><button className={classes("share-button")} type="button" disabled={shareStatus === 'sharing'} onClick={() => void shareResult()}><Share2 size={18} />{shareStatus === 'sharing' ? 'Preparing summary…' : 'Share summary'}</button>{shareStatus === 'shared' && <p className={classes("share-status")} role="status">Summary shared.</p>}{shareStatus === 'downloaded' && <p className={classes("share-status")} role="status">Summary image downloaded.{shareMessageCopied ? ' Message copied to clipboard.' : ''}</p>}{shareStatus === 'error' && <p className={classes("share-status share-error")} role="alert">{shareError}</p>}</div>
               </>}
             </section>
