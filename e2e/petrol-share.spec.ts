@@ -52,3 +52,37 @@ test('shows validation and only resets a trip after confirmation', async ({ page
   await expect(page.getByLabel('Stop 1 name')).toHaveValue('')
   await expect(page.getByLabel('Stop 2 name')).toHaveValue('')
 })
+
+test('provides safe touch targets and full-cell assignment toggles on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByRole('button', { name: 'Add another stop' }).click()
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+
+  const touchTargets = [
+    page.getByRole('button', { name: 'Theme: system. Switch theme' }),
+    page.getByRole('button', { name: 'Reset trip' }),
+    page.getByRole('button', { name: 'Move stop 2 up' }),
+    page.getByRole('button', { name: 'Remove stop 2' }),
+    page.getByRole('button', { name: 'Remove Asha' }),
+  ]
+
+  for (const target of touchTargets) {
+    const box = await target.boundingBox()
+    expect(box?.width).toBeGreaterThanOrEqual(44)
+    expect(box?.height).toBeGreaterThanOrEqual(44)
+  }
+
+  const checkbox = page.getByLabel('Asha rode from Home to Office')
+  const assignmentCell = checkbox.locator('xpath=ancestor::td')
+  const cellBox = await assignmentCell.boundingBox()
+  expect(cellBox?.width).toBeGreaterThanOrEqual(44)
+  expect(cellBox?.height).toBeGreaterThanOrEqual(44)
+
+  await assignmentCell.click({ position: { x: 4, y: 4 } })
+  await expect(checkbox).toBeChecked()
+  await assignmentCell.click({ position: { x: 4, y: 4 } })
+  await expect(checkbox).not.toBeChecked()
+})

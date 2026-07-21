@@ -41,11 +41,11 @@ const styles: Record<string, string> = {
   'sr-only': 'absolute -m-px size-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]',
   'app-shell': 'min-h-screen bg-[radial-gradient(circle_at_50%_0,#e5f4e9_0,transparent_28rem)] bg-[#f5f7f4] text-[#152a25]',
   'site-header': 'sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#dce5df] bg-white/80 px-[max(20px,calc((100vw-1180px)/2))] backdrop-blur-[14px] max-[560px]:h-[60px] max-[560px]:px-[13px]',
-  brand: 'flex items-center gap-2.5 text-[19px] tracking-[-.4px] text-[#18362d] no-underline',
+  brand: 'flex min-h-11 items-center gap-2.5 text-[19px] tracking-[-.4px] text-[#18362d] no-underline',
   'brand-mark': 'grid size-9 place-items-center rounded-[11px] bg-[#14875d] text-white shadow-[0_5px_14px_rgba(20,135,93,.24)] [&_svg]:w-5',
   'header-actions': 'flex items-center gap-1',
-  'theme-button': 'grid size-10 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] [&_svg]:size-[18px]',
-  'reset-button': 'inline-flex items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#60706a] hover:bg-[#eef2ef] hover:text-[#a13c31] max-[560px]:text-xs',
+  'theme-button': 'grid size-11 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] active:bg-[#dfeae4] [&_svg]:size-[18px]',
+  'reset-button': 'inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#8f382f] hover:bg-[#fbecea] hover:text-[#7f2f27] active:bg-[#f5d8d4] max-[560px]:text-xs',
   'persistence-status': 'mx-auto max-w-[1180px] px-6 pt-[.65rem] text-right text-[.85rem] text-[#5d6c62]',
   'persistence-recovered': 'font-semibold !text-[#9a3412]', 'persistence-error': 'font-semibold !text-[#9a3412]',
   hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
@@ -59,11 +59,12 @@ const styles: Record<string, string> = {
   'stop-row': 'flex items-start gap-[9px] max-[560px]:flex-wrap', 'person-row': 'flex items-start gap-[9px]',
   'stop-index': 'grid h-[42px] w-[25px] shrink-0 place-items-center text-[11px] font-extrabold text-[#8a9692] max-[560px]:w-5',
   'field-grow': 'min-w-0 flex-1', 'input-with-icon': 'relative [&_svg]:pointer-events-none [&_svg]:absolute [&_svg]:left-[11px] [&_svg]:top-3 [&_svg]:text-[#7c8c86] [&_input]:pl-[38px]',
-  'row-actions': 'flex gap-[3px] pt-[3px] max-[560px]:-mt-[5px] max-[560px]:ml-[29px]',
-  'icon-button': 'grid size-[35px] place-items-center rounded-lg border-0 bg-transparent p-0 text-[#6d7b76] hover:not-disabled:bg-[#edf6f1] hover:not-disabled:text-[#147a56] [&_svg]:w-4',
-  'secondary-button': 'inline-flex min-h-[42px] items-center justify-center gap-2 rounded-[9px] border border-dashed border-[#94c5ad] bg-[#eef7f2] px-[15px] py-[9px] font-bold text-[#177653] hover:bg-[#e4f3eb]',
+  'row-actions': 'flex gap-1 pt-0',
+  'icon-button': 'grid size-11 place-items-center rounded-lg border-0 bg-transparent p-0 text-[#5f6f69] hover:not-disabled:bg-[#e4f3eb] hover:not-disabled:text-[#116b49] active:not-disabled:bg-[#d3eadd] disabled:text-[#89948f] [&_svg]:w-4',
+  'destructive-button': 'ml-1 border border-[#e8c5c1] text-[#a13c31] hover:not-disabled:!bg-[#fbecea] hover:not-disabled:!text-[#842f27] active:not-disabled:!bg-[#f5d8d4]',
+  'secondary-button': 'inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] border border-dashed border-[#94c5ad] bg-[#eef7f2] px-[15px] py-[9px] font-bold text-[#177653] hover:bg-[#e4f3eb] active:bg-[#d3eadd]',
   'full-button': 'w-full', 'return-stops': 'mt-[13px] rounded-[10px] bg-[#f8faf8] p-3 [&>span]:mb-2 [&>span]:block [&>span]:text-[13px] [&>span]:font-bold [&>span]:text-[#52615c] [&>div]:flex [&>div]:flex-wrap [&>div]:gap-[7px] [&>p]:mt-2 [&>p]:text-xs [&>p]:text-[#718079]',
-  'return-stop-button': 'inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#cbded4] bg-white px-[11px] py-[7px] font-bold text-[#176c4d] hover:bg-[#eef7f2]',
+  'return-stop-button': 'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#cbded4] bg-white px-[13px] py-[7px] font-bold text-[#176c4d] hover:bg-[#eef7f2] active:bg-[#dfeee6]',
   subsection: 'mt-[27px] border-t border-[#e6ebe8] pt-[22px] [&_h3]:mb-[13px] [&_h3]:text-[13px] [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-[.85px] [&_h3]:text-[#66746f]',
   'leg-list': 'grid gap-[9px]', 'leg-row': 'grid grid-cols-[minmax(0,1fr)_140px] items-start gap-4 rounded-[10px] bg-[#f6f8f6] px-[13px] py-3 max-[560px]:grid-cols-[1fr_115px] max-[560px]:gap-2 max-[560px]:p-2.5',
   'leg-name': 'flex min-w-0 items-center gap-[7px] pt-2.5 text-[13px] font-bold max-[560px]:text-[11px] [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap [&_svg]:shrink-0 [&_svg]:text-[#8c9995]',
@@ -107,13 +108,14 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   return <p className={classes("field-error")} id={id} role="alert"><CircleAlert size={14} />{message}</p>
 }
 
-function IconButton({ label, disabled, onClick, children }: {
+function IconButton({ label, disabled, destructive = false, onClick, children }: {
   label: string
   disabled?: boolean
+  destructive?: boolean
   onClick: () => void
   children: React.ReactNode
 }) {
-  return <button className={classes("icon-button")} type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{children}</button>
+  return <button className={classes(`icon-button${destructive ? ' destructive-button' : ''}`)} type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{children}</button>
 }
 
 function App() {
@@ -336,7 +338,7 @@ function App() {
                     <div className={classes("row-actions")}>
                       <IconButton label={`Move stop ${index + 1} up`} disabled={index === 0} onClick={() => moveStop(index, -1)}><ArrowUp /></IconButton>
                       <IconButton label={`Move stop ${index + 1} down`} disabled={index === draft.stops.length - 1} onClick={() => moveStop(index, 1)}><ArrowDown /></IconButton>
-                      <IconButton label={`Remove stop ${index + 1}`} disabled={draft.stops.length <= 2} onClick={() => changeStops(draft.stops.filter(({ id }) => id !== stop.id))}><Trash2 /></IconButton>
+                      <IconButton label={`Remove stop ${index + 1}`} destructive disabled={draft.stops.length <= 2} onClick={() => changeStops(draft.stops.filter(({ id }) => id !== stop.id))}><Trash2 /></IconButton>
                     </div>
                   </li>
                 })}
@@ -374,7 +376,7 @@ function App() {
                 {draft.people.map((person, index) => {
                   const error = errors[`people.${index}.name`]
                   const errorId = `person-${person.id}-error`
-                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("sr-only")} htmlFor={`person-${person.id}`}>Person {index + 1} name</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} onClick={() => update({ ...draft, people: draft.people.filter(({ id }) => id !== person.id) })}><Trash2 /></IconButton></div>
+                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("sr-only")} htmlFor={`person-${person.id}`}>Person {index + 1} name</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} destructive onClick={() => update({ ...draft, people: draft.people.filter(({ id }) => id !== person.id) })}><Trash2 /></IconButton></div>
                 })}
               </div>
               <button className={classes("secondary-button full-button")} type="button" onClick={addPerson}><Plus size={18} /> Add person</button>
@@ -385,7 +387,7 @@ function App() {
           <aside className={classes("results-column")}>
             <section className={classes("panel assignment-panel")} aria-labelledby="assignment-title">
               <div className={classes("panel-heading compact")}><span className={classes("step")}>4</span><div><h2 id="assignment-title">Assign each leg</h2><p>Check who travelled on each part.</p></div></div>
-              {draft.people.length === 0 ? <div className={classes("empty-state")}><Users /><p>Add people to start assigning riders.</p></div> : <div className={classes("assignment-scroll")}><table><thead><tr><th scope="col">Passenger</th>{draft.legs.map((leg) => <th scope="col" key={leg.id}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={13} /><span>{stopsById.get(leg.toStopId)}</span></th>)}</tr></thead><tbody>{draft.people.map((person) => <tr key={person.id}><th scope="row">{person.name || 'Unnamed'}</th>{draft.legs.map((leg) => <td key={leg.id}><input type="checkbox" aria-label={`${person.name || 'Unnamed person'} rode from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)}`} checked={person.assignedLegIds.includes(leg.id)} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id !== person.id ? item : { ...item, assignedLegIds: event.target.checked ? [...item.assignedLegIds, leg.id] : item.assignedLegIds.filter((id) => id !== leg.id) }) })} /></td>)}</tr>)}</tbody></table></div>}
+              {draft.people.length === 0 ? <div className={classes("empty-state")}><Users /><p>Add people to start assigning riders.</p></div> : <div className={classes("assignment-scroll")}><table><thead><tr><th scope="col">Passenger</th>{draft.legs.map((leg) => <th scope="col" key={leg.id}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={13} /><span>{stopsById.get(leg.toStopId)}</span></th>)}</tr></thead><tbody>{draft.people.map((person) => <tr key={person.id}><th scope="row">{person.name || 'Unnamed'}</th>{draft.legs.map((leg) => { const assignmentLabel = `${person.name || 'Unnamed person'} rode from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)}`; return <td key={leg.id}><label className="assignment-target"><input type="checkbox" aria-label={assignmentLabel} checked={person.assignedLegIds.includes(leg.id)} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id !== person.id ? item : { ...item, assignedLegIds: event.target.checked ? [...item.assignedLegIds, leg.id] : item.assignedLegIds.filter((id) => id !== leg.id) }) })} /><span className={classes("sr-only")}>{assignmentLabel}</span></label></td> })}</tr>)}</tbody></table></div>}
             </section>
 
             <section className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">

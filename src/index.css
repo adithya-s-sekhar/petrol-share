@@ -12,21 +12,27 @@
   html { scroll-behavior: smooth; }
   body { margin: 0; min-width: 320px; min-height: 100vh; }
   button, input { font: inherit; }
-  button { cursor: pointer; }
-  button:disabled { cursor: not-allowed; opacity: .35; }
-  button:focus-visible, input:focus-visible { outline: 3px solid rgb(18 137 95 / .25); outline-offset: 2px; }
+  button { cursor: pointer; transition: background-color .15s, color .15s, border-color .15s; }
+  button:disabled { cursor: not-allowed; opacity: .55; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid #0f7652; outline-offset: 2px; }
   input { width: 100%; min-height: 42px; padding: 9px 12px; color: #213731; background: #fbfcfb; border: 1px solid #ccd7d1; border-radius: 9px; transition: border-color .15s, box-shadow .15s; }
   input:hover { border-color: #a8bab1; }
   input:focus { border-color: #17875e; box-shadow: 0 0 0 3px rgb(23 135 94 / .1); outline: 0; }
+  input:focus-visible { outline: 3px solid #0f7652; outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: #cb5347; }
   h2, h3, p { margin-top: 0; }
   table { width: 100%; min-width: 360px; border-collapse: collapse; font-size: 12px; }
   th, td { padding: 10px 7px; border-bottom: 1px solid #e7ece9; text-align: center; }
+  tbody td { padding: 0; }
   thead th { color: #71807b; font-size: 10px; font-weight: 800; }
   thead th:first-child, tbody th { position: sticky; left: 0; background: white; text-align: left; }
   thead th:not(:first-child) span { display: block; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: auto; }
   thead th svg { margin: 2px auto; color: #94a09c; }
   tbody th { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+  .assignment-target { display: grid; min-width: 44px; min-height: 44px; place-items: center; cursor: pointer; border-radius: 8px; transition: background-color .15s; }
+  .assignment-target:hover { background: #edf6f1; }
+  .assignment-target:active { background: #dceee4; }
+  .assignment-target:has(input:focus-visible) { outline: 3px solid #0f7652; outline-offset: -3px; }
   td input[type="checkbox"] { appearance: none; display: grid; place-content: center; width: 21px; min-height: 21px; height: 21px; margin: auto; padding: 0; border-radius: 6px; background: white; }
   td input[type="checkbox"]::before { content: ""; width: 11px; height: 11px; transform: scale(0); clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 20%, 84% 6%, 38% 70%); background: white; }
   td input[type="checkbox"]:checked { background: #17875e; border-color: #17875e; }
@@ -89,6 +95,8 @@ html[data-theme="dark"] input:hover { border-color: #667d73; }
 html[data-theme="dark"] input:focus { border-color: #45b985; box-shadow: 0 0 0 3px rgb(69 185 133 / .15); }
 html[data-theme="dark"] .icon-button { color: #98aaa2; }
 html[data-theme="dark"] .icon-button:hover:not(:disabled) { background: #20372e; color: #70d0a5; }
+html[data-theme="dark"] .destructive-button { border-color: #754b46; color: #f0a39a; }
+html[data-theme="dark"] .destructive-button:hover:not(:disabled) { background: #402622 !important; color: #ffc0b8 !important; }
 html[data-theme="dark"] .secondary-button { border-color: #477662; background: #193329; color: #80d8b0; }
 html[data-theme="dark"] .secondary-button:hover { background: #214337; }
 html[data-theme="dark"] .return-stops,
@@ -108,4 +116,6 @@ html[data-theme="dark"] thead th { color: #9baea6; }
 html[data-theme="dark"] thead th:first-child,
 html[data-theme="dark"] tbody th { background: #14201c; }
 html[data-theme="dark"] td input[type="checkbox"] { background: #101d19; }
+html[data-theme="dark"] .assignment-target:hover { background: #20372e; }
+html[data-theme="dark"] .assignment-target:active { background: #29483b; }
 html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
