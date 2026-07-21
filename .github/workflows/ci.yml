@@ -2,6 +2,8 @@ name: CI and Pages
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
@@ -43,10 +45,7 @@ jobs:
         run: pnpm build
 
       - name: Verify PWA artifacts
-        run: |
-          test -s dist/manifest.webmanifest
-          test -s dist/sw.js
-          node -e "const manifest = JSON.parse(require('node:fs').readFileSync('dist/manifest.webmanifest')); if (manifest.start_url !== '/' || manifest.scope !== '/') process.exit(1)"
+        run: pnpm verify:pwa
 
   build-pages:
     name: Build Pages artifact
@@ -74,9 +73,7 @@ jobs:
 
       - name: Verify Pages PWA artifacts
         run: |
-          test -s dist/manifest.webmanifest
-          test -s dist/sw.js
-          node -e "const manifest = JSON.parse(require('node:fs').readFileSync('dist/manifest.webmanifest')); if (manifest.start_url !== '/petrol-share/' || manifest.scope !== '/petrol-share/') process.exit(1)"
+          pnpm verify:pwa:pages
           grep -Fq '/petrol-share/assets/' dist/index.html
 
       - name: Configure GitHub Pages
