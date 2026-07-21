@@ -7,9 +7,12 @@ import {
   CircleAlert,
   Fuel,
   MapPin,
+  Monitor,
+  Moon,
   Plus,
   RotateCcw,
   Share2,
+  Sun,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -28,9 +31,11 @@ import { createSummaryImage, shareSummary } from './shareSummary'
 type ErrorMap = Record<string, string>
 type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'error'
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
+type ThemePreference = 'system' | 'light' | 'dark'
 
 const AUTOSAVE_DELAY_MS = 500
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
+const THEME_STORAGE_KEY = 'petrol-share-theme'
 
 const styles: Record<string, string> = {
   'sr-only': 'absolute -m-px size-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]',
@@ -38,6 +43,8 @@ const styles: Record<string, string> = {
   'site-header': 'sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#dce5df] bg-white/80 px-[max(20px,calc((100vw-1180px)/2))] backdrop-blur-[14px] max-[560px]:h-[60px] max-[560px]:px-[13px]',
   brand: 'flex items-center gap-2.5 text-[19px] tracking-[-.4px] text-[#18362d] no-underline',
   'brand-mark': 'grid size-9 place-items-center rounded-[11px] bg-[#14875d] text-white shadow-[0_5px_14px_rgba(20,135,93,.24)] [&_svg]:w-5',
+  'header-actions': 'flex items-center gap-1',
+  'theme-button': 'grid size-10 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] [&_svg]:size-[18px]',
   'reset-button': 'inline-flex items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#60706a] hover:bg-[#eef2ef] hover:text-[#a13c31] max-[560px]:text-xs',
   'persistence-status': 'mx-auto max-w-[1180px] px-6 pt-[.65rem] text-right text-[.85rem] text-[#5d6c62]',
   'persistence-recovered': 'font-semibold !text-[#9a3412]', 'persistence-error': 'font-semibold !text-[#9a3412]',
@@ -110,6 +117,10 @@ function IconButton({ label, disabled, onClick, children }: {
 }
 
 function App() {
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY)
+    return stored === 'light' || stored === 'dark' ? stored : 'system'
+  })
   const [draft, setDraft] = useState<TripDraft>(() => createBlankTripDraft())
   const [submitted, setSubmitted] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -123,6 +134,25 @@ function App() {
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
   const stopsById = new Map(draft.stops.map((stop) => [stop.id, stop.name || 'Unnamed stop']))
+
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const applyTheme = () => {
+      const resolvedTheme = themePreference === 'system' ? (media?.matches ? 'dark' : 'light') : themePreference
+      document.documentElement.dataset.theme = resolvedTheme
+      document.documentElement.style.colorScheme = resolvedTheme
+    }
+    applyTheme()
+    if (themePreference === 'system') media?.addEventListener('change', applyTheme)
+    return () => media?.removeEventListener('change', applyTheme)
+  }, [themePreference])
+
+  function cycleTheme() {
+    const nextPreference = themePreference === 'system' ? 'light' : themePreference === 'light' ? 'dark' : 'system'
+    setThemePreference(nextPreference)
+    if (nextPreference === 'system') localStorage.removeItem(THEME_STORAGE_KEY)
+    else localStorage.setItem(THEME_STORAGE_KEY, nextPreference)
+  }
 
   useEffect(() => {
     let active = true
@@ -272,7 +302,12 @@ function App() {
     <div className={classes("app-shell")}>
       <header className={classes("site-header")}>
         <a className={classes("brand")} href="#top" aria-label="Petrol Share home"><span className={classes("brand-mark")}><Fuel /></span><span>Petrol <strong>Share</strong></span></a>
-        <button className={classes("reset-button")} type="button" onClick={resetTrip}><RotateCcw size={17} /> Reset trip</button>
+        <div className={classes("header-actions")}>
+          <button className={classes("theme-button")} type="button" onClick={cycleTheme} aria-label={`Theme: ${themePreference}. Switch theme`} title={`Theme: ${themePreference}`}>
+            {themePreference === 'system' ? <Monitor /> : themePreference === 'light' ? <Sun /> : <Moon />}
+          </button>
+          <button className={classes("reset-button")} type="button" onClick={resetTrip}><RotateCcw size={17} /> Reset trip</button>
+        </div>
       </header>
 
       <main id="top">
