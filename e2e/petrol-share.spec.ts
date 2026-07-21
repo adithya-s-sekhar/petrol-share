@@ -5,6 +5,25 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('keeps labels visible and switches display units without changing cost', async ({ page }) => {
+  await expect(page.getByText('Stop 1', { exact: true })).toBeVisible()
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('100')
+  await page.getByLabel('Fuel economy').fill('10')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+
+  await expect(page.getByText('Passenger 1', { exact: true })).toBeVisible()
+  await expect(page.getByText('Include the driver if they share the cost.')).toBeVisible()
+  await expect(page.getByText('₹1,000.00', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'US customary' }).click()
+  await expect(page.getByLabel('Distance from Home to Office in miles')).toHaveValue('62.137119')
+  await expect(page.getByLabel('Fuel economy')).toHaveValue('23.521458')
+  await expect(page.getByText('₹1,000.00', { exact: true })).toBeVisible()
+})
+
 test('calculates and persists a fair split for a local trip', async ({ page }) => {
   await page.getByLabel('Stop 1 name').fill('Home')
   await page.getByLabel('Stop 2 name').fill('Office')
