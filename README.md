@@ -35,9 +35,12 @@ Run the project checks with:
 ```sh
 pnpm lint
 pnpm test
+pnpm test:e2e
 pnpm build
 pnpm verify:pwa
 ```
+
+Install Playwright's local browser binaries once with `pnpm exec playwright install`, then use `pnpm test:e2e` to start a local Vite server and run the complete end-to-end suite in Chromium, Firefox, and WebKit. The E2E suite is intentionally run locally rather than as a GitHub Actions job and must pass before raising a pull request.
 
 `pnpm test:watch` runs Vitest in watch mode. `pnpm build` first type-checks the project and then writes the production app and generated PWA files to `dist/`. To inspect that build locally, run `pnpm preview` after building. The service worker is generated only for a production build, not by the development server.
 
