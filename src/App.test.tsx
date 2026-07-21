@@ -1,16 +1,25 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { createBlankTripDraft } from './domain'
+import { loadCurrentTrip, saveCurrentTrip, tripStorageConfig } from './persistence/tripStorage'
 
 afterEach(() => vi.restoreAllMocks())
+beforeEach(async () => {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(tripStorageConfig.databaseName)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+})
 
 describe('App', () => {
   it('builds a route with repeated stop occurrences', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.type(screen.getByLabelText('Stop 1 name'), 'A')
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'A')
     await user.type(screen.getByLabelText('Stop 2 name'), 'B')
     for (const name of ['C', 'B', 'A']) {
       await user.click(screen.getByRole('button', { name: 'Add another stop' }))
@@ -27,7 +36,7 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.type(screen.getByLabelText('Stop 1 name'), 'Home')
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'Home')
     await user.type(screen.getByLabelText('Stop 2 name'), 'Work')
     await user.type(screen.getByLabelText(/Distance from Home to Work/), '30')
     await user.type(screen.getByLabelText('Fuel economy'), '15')
@@ -51,7 +60,7 @@ describe('App', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Calculate split' }))
+    await user.click(await screen.findByRole('button', { name: 'Calculate split' }))
     expect(await screen.findAllByRole('alert')).not.toHaveLength(0)
 
     await user.type(screen.getByLabelText('Stop 1 name'), 'Keep me')
@@ -60,5 +69,69 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Reset trip' }))
     expect(screen.getByLabelText('Stop 1 name')).toHaveValue('')
     expect(confirm).toHaveBeenCalledTimes(2)
+
+    await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 1500 })
+    const stored = await loadCurrentTrip()
+    expect(stored.status).toBe('restored')
+    if (stored.status === 'restored') expect(stored.draft.stops.every(({ name }) => name === '')).toBe(true)
+  })
+
+  it('restores a complete saved trip before showing the editor', async () => {
+    const draft = createBlankTripDraft({ createId: (() => {
+      let id = 0
+      return () => `id-${++id}`
+    })(), now: () => new Date('2026-07-22T00:00:00.000Z') })
+    draft.stops[0].name = 'Home'
+    draft.stops[1].name = 'Office'
+    draft.legs[0].distanceKm = 24
+    draft.people = [{ id: 'person-1', name: 'Asha', assignedLegIds: [draft.legs[0].id] }]
+    draft.fuelSettings = { fuelEconomyKmpl: 12, fuelPricePerLitre: 100, currency: 'INR' }
+    await saveCurrentTrip(draft)
+
+    render(<App />)
+
+    expect(screen.getByText('Loading your trip…')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Stop 1 name')).toHaveValue('Home')
+    expect(screen.getByLabelText('Stop 2 name')).toHaveValue('Office')
+    expect(screen.getByLabelText(/Distance from Home to Office/)).toHaveValue(24)
+    expect(screen.getByLabelText('Person 1 name')).toHaveValue('Asha')
+    expect(screen.getByRole('checkbox', { name: 'Asha rode from Home to Office' })).toBeChecked()
+    expect(screen.getByLabelText('Fuel economy')).toHaveValue(12)
+    expect(screen.getByLabelText('Price per litre')).toHaveValue(100)
+  })
+
+  it('debounces rapid incomplete edits and persists the latest draft', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const firstStop = await screen.findByLabelText('Stop 1 name')
+    await user.type(firstStop, 'Rapid edits')
+    expect(screen.getByText('Saving…')).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 1500 })
+    const loaded = await loadCurrentTrip()
+    expect(loaded.status).toBe('restored')
+    if (loaded.status === 'restored') expect(loaded.draft.stops[0].name).toBe('Rapid edits')
+  })
+
+  it.each([
+    ['an outdated record', { schemaVersion: 0 }],
+    ['a malformed record', { schemaVersion: 1, stops: 'broken' }],
+  ])('recovers safely from %s', async (_description, record) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(tripStorageConfig.databaseName, 1)
+      request.onupgradeneeded = () => request.result.createObjectStore(tripStorageConfig.storeName)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const transaction = database.transaction(tripStorageConfig.storeName, 'readwrite')
+    transaction.objectStore(tripStorageConfig.storeName).put(record, tripStorageConfig.currentTripKey)
+    await new Promise<void>((resolve) => { transaction.oncomplete = () => resolve() })
+    database.close()
+
+    render(<App />)
+
+    expect(await screen.findByLabelText('Stop 1 name')).toHaveValue('')
+    expect(screen.getByText(/could not be restored/)).toBeInTheDocument()
   })
 })

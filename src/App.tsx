@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -21,8 +21,12 @@ import {
   type Person,
   type TripDraft,
 } from './domain'
+import { loadCurrentTrip, saveCurrentTrip } from './persistence/tripStorage'
 
 type ErrorMap = Record<string, string>
+type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'error'
+
+const AUTOSAVE_DELAY_MS = 500
 
 function createId(): string {
   return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
@@ -55,10 +59,57 @@ function IconButton({ label, disabled, onClick, children }: {
 function App() {
   const [draft, setDraft] = useState<TripDraft>(() => createBlankTripDraft())
   const [submitted, setSubmitted] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+  const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>('loading')
+  const hydratedDraftRef = useRef<string | null>(null)
+  const saveSequenceRef = useRef(0)
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
   const stopsById = new Map(draft.stops.map((stop) => [stop.id, stop.name || 'Unnamed stop']))
+
+  useEffect(() => {
+    let active = true
+    void loadCurrentTrip()
+      .then((loaded) => {
+        if (!active) return
+        const initialDraft = loaded.status === 'restored' ? loaded.draft : createBlankTripDraft()
+        hydratedDraftRef.current = JSON.stringify(initialDraft)
+        setDraft(initialDraft)
+        setPersistenceStatus(loaded.status === 'recovered' ? 'recovered' : 'idle')
+        setHydrated(true)
+      })
+      .catch(() => {
+        if (!active) return
+        const blankDraft = createBlankTripDraft()
+        hydratedDraftRef.current = JSON.stringify(blankDraft)
+        setDraft(blankDraft)
+        setPersistenceStatus('recovered')
+        setHydrated(true)
+      })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+    const serializedDraft = JSON.stringify(draft)
+    if (serializedDraft === hydratedDraftRef.current) return
+
+    const sequence = ++saveSequenceRef.current
+    setPersistenceStatus('saving')
+    const timeout = window.setTimeout(() => {
+      void saveCurrentTrip(draft)
+        .then(() => {
+          if (saveSequenceRef.current !== sequence) return
+          hydratedDraftRef.current = serializedDraft
+          setPersistenceStatus('saved')
+        })
+        .catch(() => {
+          if (saveSequenceRef.current === sequence) setPersistenceStatus('error')
+        })
+    }, AUTOSAVE_DELAY_MS)
+    return () => window.clearTimeout(timeout)
+  }, [draft, hydrated])
 
   function update(next: TripDraft) {
     setDraft({ ...next, updatedAt: new Date().toISOString() })
@@ -96,6 +147,19 @@ function App() {
     if (!parsed.success) requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
   }
 
+  if (!hydrated) {
+    return <main className="loading-screen" aria-busy="true"><Fuel /><p role="status">Loading your trip…</p></main>
+  }
+
+  const persistenceMessage = {
+    loading: 'Loading your trip…',
+    idle: 'Autosave ready',
+    saving: 'Saving…',
+    saved: 'Saved',
+    recovered: 'Saved trip could not be restored. A new trip was started safely.',
+    error: 'Could not save changes. Keep this page open and try another edit.',
+  }[persistenceStatus]
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -104,6 +168,7 @@ function App() {
       </header>
 
       <main id="top">
+        <div className={`persistence-status persistence-${persistenceStatus}`} role="status" aria-live="polite">{persistenceMessage}</div>
         <section className="hero" aria-labelledby="page-title">
           <div className="eyebrow"><CarFront size={16} /> Fair fuel costs, leg by leg</div>
           <h1 id="page-title">Plan the route.<br /><span>Split the ride.</span></h1>
