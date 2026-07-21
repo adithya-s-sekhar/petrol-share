@@ -45,16 +45,35 @@ describe('normalizeRoute', () => {
     expect(result.people[0].assignedLegIds).toEqual(['bc'])
   })
 
-  it('does not preserve reversed legs when stops move', () => {
+  it('creates new reversed legs while reusing their known distances', () => {
     const newIds = ['cb', 'ba'][Symbol.iterator]()
 
     const result = normalizeRoute([...stops].reverse(), legs, people, { createId: () => newIds.next().value! })
 
     expect(result.legs).toEqual([
-      { id: 'cb', fromStopId: 'c', toStopId: 'b', distanceKm: null },
-      { id: 'ba', fromStopId: 'b', toStopId: 'a', distanceKm: null },
+      { id: 'cb', fromStopId: 'c', toStopId: 'b', distanceKm: 20, distanceSource: 'reused' },
+      { id: 'ba', fromStopId: 'b', toStopId: 'a', distanceKm: 10, distanceSource: 'reused' },
     ])
     expect(result.people[0].assignedLegIds).toEqual([])
+  })
+
+  it('reuses a known distance for a new reverse leg between repeated locations', () => {
+    const returnVisit: Stop = { id: 'b-return', name: 'B' }
+
+    const result = normalizeRoute(
+      [...stops, returnVisit],
+      legs,
+      people,
+      { createId: () => 'cb' },
+    )
+
+    expect(result.legs[2]).toEqual({
+      id: 'cb',
+      fromStopId: 'c',
+      toStopId: 'b-return',
+      distanceKm: 20,
+      distanceSource: 'reused',
+    })
   })
 
   it('returns a new draft without mutating its inputs', () => {

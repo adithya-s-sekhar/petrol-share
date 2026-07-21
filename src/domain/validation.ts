@@ -31,6 +31,7 @@ const legSchema = z.object({
   fromStopId: idSchema,
   toStopId: idSchema,
   distanceKm: nullablePositiveNumberSchema,
+  distanceSource: z.enum(['manual', 'reused']).optional(),
 })
 
 const personSchema = z.object({
