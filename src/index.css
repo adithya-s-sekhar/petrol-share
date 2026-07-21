@@ -46,7 +46,8 @@ main:not(.loading-screen) { width: min(1180px, calc(100% - 32px)); margin-inline
 .hero h1 span { color: #16855c; }
 .hero > p { max-width: 520px; margin-inline: auto; line-height: 1.65; color: #66736f; }
 @media (max-width: 560px) {
-  main:not(.loading-screen) { width: min(100% - 22px, 1180px); }
+  main:not(.loading-screen) { width: min(100% - 22px, 1180px); padding-bottom: 104px; }
+  footer { padding-bottom: 88px; }
   .hero h1 { font-size: 43px; letter-spacing: -2px; }
   .hero > p { font-size: 14px; }
 }
