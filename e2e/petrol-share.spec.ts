@@ -53,20 +53,26 @@ test('shows validation and only resets a trip after confirmation', async ({ page
   await expect(page.getByLabel('Stop 2 name')).toHaveValue('')
 })
 
-test('provides safe touch targets and full-cell assignment toggles on mobile', async ({ page }) => {
+test('provides mobile assignment cards without horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByLabel('Stop 1 name').fill('Home')
-  await page.getByLabel('Stop 2 name').fill('Office')
-  await page.getByRole('button', { name: 'Add another stop' }).click()
-  await page.getByRole('button', { name: 'Add person' }).click()
-  await page.getByLabel('Person 1 name').fill('Asha')
+  const stops = Array.from({ length: 9 }, (_, index) => `Long stop name ${index + 1}`)
+  await page.getByLabel('Stop 1 name').fill(stops[0])
+  await page.getByLabel('Stop 2 name').fill(stops[1])
+  for (let index = 2; index < stops.length; index += 1) {
+    await page.getByRole('button', { name: 'Add another stop' }).click()
+    await page.getByLabel(`Stop ${index + 1} name`).fill(stops[index])
+  }
+  for (let index = 0; index < 8; index += 1) {
+    await page.getByRole('button', { name: 'Add person' }).click()
+    await page.getByLabel(`Person ${index + 1} name`).fill(`Rider ${index + 1}`)
+  }
 
   const touchTargets = [
     page.getByRole('button', { name: 'Theme: system. Switch theme' }),
     page.getByRole('button', { name: 'Reset trip' }),
     page.getByRole('button', { name: 'Move stop 2 up' }),
     page.getByRole('button', { name: 'Remove stop 2' }),
-    page.getByRole('button', { name: 'Remove Asha' }),
+    page.getByRole('button', { name: 'Remove Rider 1' }),
   ]
 
   for (const target of touchTargets) {
@@ -75,14 +81,30 @@ test('provides safe touch targets and full-cell assignment toggles on mobile', a
     expect(box?.height).toBeGreaterThanOrEqual(44)
   }
 
-  const checkbox = page.getByLabel('Asha rode from Home to Office')
-  const assignmentCell = checkbox.locator('xpath=ancestor::td')
-  const cellBox = await assignmentCell.boundingBox()
-  expect(cellBox?.width).toBeGreaterThanOrEqual(44)
-  expect(cellBox?.height).toBeGreaterThanOrEqual(44)
+  await expect(page.getByRole('table')).toBeHidden()
+  const firstLeg = page.getByRole('region', { name: `Riders from ${stops[0]} to ${stops[1]}` })
+  await expect(firstLeg).toContainText(stops[0])
+  await expect(firstLeg).toContainText(stops[1])
+  await firstLeg.getByRole('button', { name: 'Select all' }).click()
+  await expect(firstLeg.getByRole('checkbox')).toHaveCount(8)
+  for (const checkbox of await firstLeg.getByRole('checkbox').all()) await expect(checkbox).toBeChecked()
+  await firstLeg.getByLabel(`Rider 1 rode from ${stops[0]} to ${stops[1]}`).uncheck()
+  await expect(firstLeg.getByLabel(`Rider 1 rode from ${stops[0]} to ${stops[1]}`)).not.toBeChecked()
 
-  await assignmentCell.click({ position: { x: 4, y: 4 } })
-  await expect(checkbox).toBeChecked()
-  await assignmentCell.click({ position: { x: 4, y: 4 } })
-  await expect(checkbox).not.toBeChecked()
+  const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+  expect(hasHorizontalOverflow).toBe(false)
+})
+
+test('keeps the accessible desktop assignment matrix', async ({ page }) => {
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+
+  const table = page.getByRole('table')
+  await expect(table).toBeVisible()
+  await expect(table.getByRole('columnheader', { name: 'Passenger' })).toBeVisible()
+  await expect(table.getByRole('rowheader', { name: 'Asha' })).toBeVisible()
+  await table.getByLabel('Asha rode from Home to Office').check()
+  await expect(table.getByLabel('Asha rode from Home to Office')).toBeChecked()
 })

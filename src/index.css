@@ -33,10 +33,11 @@
   .assignment-target:hover { background: #edf6f1; }
   .assignment-target:active { background: #dceee4; }
   .assignment-target:has(input:focus-visible) { outline: 3px solid #0f7652; outline-offset: -3px; }
-  td input[type="checkbox"] { appearance: none; display: grid; place-content: center; width: 21px; min-height: 21px; height: 21px; margin: auto; padding: 0; border-radius: 6px; background: white; }
-  td input[type="checkbox"]::before { content: ""; width: 11px; height: 11px; transform: scale(0); clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 20%, 84% 6%, 38% 70%); background: white; }
-  td input[type="checkbox"]:checked { background: #17875e; border-color: #17875e; }
-  td input[type="checkbox"]:checked::before { transform: scale(1); }
+  .assignment-target input[type="checkbox"], .assignment-chip input[type="checkbox"] { appearance: none; display: grid; flex: 0 0 auto; place-content: center; width: 21px; min-height: 21px; height: 21px; margin: auto; padding: 0; border-radius: 6px; background: white; }
+  .assignment-chip input[type="checkbox"] { margin: 0; }
+  .assignment-target input[type="checkbox"]::before, .assignment-chip input[type="checkbox"]::before { content: ""; width: 11px; height: 11px; transform: scale(0); clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 20%, 84% 6%, 38% 70%); background: white; }
+  .assignment-target input[type="checkbox"]:checked, .assignment-chip input[type="checkbox"]:checked { background: #17875e; border-color: #17875e; }
+  .assignment-target input[type="checkbox"]:checked::before, .assignment-chip input[type="checkbox"]:checked::before { transform: scale(1); }
   footer { padding: 24px; text-align: center; color: #8b9692; font-size: 12px; border-top: 1px solid #e0e7e2; }
 }
 
@@ -110,6 +111,11 @@ html[data-theme="dark"] .return-stop-button { border-color: #3f6655; background:
 html[data-theme="dark"] .subsection { border-color: #304039; }
 html[data-theme="dark"] .distance-source-manual { background: #33443d; color: #cad8d2; }
 html[data-theme="dark"] .empty-state { border-color: #405049; background: #17231f; color: #93a39d; }
+html[data-theme="dark"] .assignment-card { border-color: #35473f; background: #182722; }
+html[data-theme="dark"] .assignment-card-heading { border-color: #35473f; }
+html[data-theme="dark"] .select-all-button,
+html[data-theme="dark"] .assignment-chip { border-color: #435a50; background: #101d19; color: #dce9e3; }
+html[data-theme="dark"] .assignment-chip:has(input:checked) { border-color: #4c9d77; background: #1b3a2d; }
 html[data-theme="dark"] th,
 html[data-theme="dark"] td { border-color: #30413a; }
 html[data-theme="dark"] thead th { color: #9baea6; }
