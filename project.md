@@ -47,6 +47,7 @@ The user will be able to see the following
 - Indexeddb for storage and persistence
 - PWA with offline access. Needs to be able to install locally on iOS and Android devices.
 - Vitest test suites for the calculation engine and UI.
+- pnpm for package management.
 
 ## Deployment
 
