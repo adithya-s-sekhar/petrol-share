@@ -5,7 +5,10 @@ import App from './App'
 import { createBlankTripDraft } from './domain'
 import { loadCurrentTrip, saveCurrentTrip, tripStorageConfig } from './persistence/tripStorage'
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+})
 beforeEach(async () => {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(tripStorageConfig.databaseName)
@@ -55,6 +58,81 @@ describe('App', () => {
     expect(screen.queryByText('Some legs have no riders')).not.toBeInTheDocument()
   })
 
+  it('builds and fairly splits the representative return journey through visible controls', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const stopNames = ['A', 'B', 'C', 'B', 'A']
+    for (let index = 2; index < stopNames.length; index += 1) {
+      await user.click(await screen.findByRole('button', { name: 'Add another stop' }))
+    }
+    for (const [index, name] of stopNames.entries()) {
+      await user.type(screen.getByLabelText(`Stop ${index + 1} name`), index === 2 ? 'X' : name)
+    }
+    await user.clear(screen.getByLabelText('Stop 3 name'))
+    await user.type(screen.getByLabelText('Stop 3 name'), 'C')
+
+    const distanceInputs = screen.getAllByLabelText(/Distance from .+ to .+ in kilometres/)
+    for (const [index, distance] of ['10', '20', '30', '40'].entries()) {
+      await user.type(distanceInputs[index], distance)
+    }
+    await user.type(screen.getByLabelText('Fuel economy'), '10')
+    await user.type(screen.getByLabelText('Price per litre'), '100')
+
+    for (const name of ['Asha', 'Ben']) {
+      await user.click(screen.getByRole('button', { name: 'Add person' }))
+      await user.type(screen.getByLabelText(`Person ${screen.getAllByLabelText(/Person \d+ name/).length} name`), name)
+    }
+
+    const ashaAssignments = screen.getAllByRole<HTMLInputElement>('checkbox', { name: /^Asha rode/ })
+    const benAssignments = screen.getAllByRole<HTMLInputElement>('checkbox', { name: /^Ben rode/ })
+    await user.click(ashaAssignments[0])
+    await user.click(benAssignments[2])
+
+    const warning = screen.getByText('Some legs have no riders').closest<HTMLElement>('.warning-notice')!
+    expect(within(warning).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(warning).getByText('B → C')).toBeInTheDocument()
+    expect(within(warning).getByText('B → A')).toBeInTheDocument()
+    expect(screen.queryByText('₹750.00')).not.toBeInTheDocument()
+
+    for (const checkbox of ashaAssignments) {
+      if (!checkbox.checked) await user.click(checkbox)
+    }
+    await user.click(benAssignments[1])
+
+    expect(screen.queryByText('Some legs have no riders')).not.toBeInTheDocument()
+    const results = screen.getByRole('heading', { name: 'Journey summary' }).closest<HTMLElement>('.results-card')!
+    expect(within(results).getByText('100 km')).toBeInTheDocument()
+    expect(within(results).getByText('10 L')).toBeInTheDocument()
+    expect(within(results).getByText('₹1,000.00')).toBeInTheDocument()
+    expect(within(within(results).getByText('Asha').closest<HTMLElement>('.split-row')!).getByText('₹750.00')).toBeInTheDocument()
+    expect(within(within(results).getByText('Ben').closest<HTMLElement>('.split-row')!).getByText('₹250.00')).toBeInTheDocument()
+  })
+
+  it('keeps assignment information and keyboard actions available at mobile width', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 })
+    window.dispatchEvent(new Event('resize'))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Stop 1 name'), 'A')
+    await user.type(screen.getByLabelText('Stop 2 name'), 'B')
+    await user.click(screen.getByRole('button', { name: 'Add person' }))
+    await user.type(screen.getByLabelText('Person 1 name'), 'Asha')
+
+    const assignment = screen.getByRole('checkbox', { name: 'Asha rode from A to B' })
+    expect(screen.getByRole('columnheader', { name: 'AB' })).toBeInTheDocument()
+    assignment.focus()
+    await user.keyboard(' ')
+    expect(assignment).toBeChecked()
+
+    const addStop = screen.getByRole('button', { name: 'Add another stop' })
+    addStop.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByLabelText('Stop 3 name')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reset trip' })).toBeInTheDocument()
+  })
+
   it('announces validation and requires confirmation before reset', async () => {
     const user = userEvent.setup()
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
@@ -62,8 +140,12 @@ describe('App', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Calculate split' }))
     expect(await screen.findAllByRole('alert')).not.toHaveLength(0)
+    const firstStop = screen.getByLabelText('Stop 1 name')
+    expect(firstStop).toHaveFocus()
+    expect(firstStop).toHaveAccessibleDescription('Stop name is required')
+    expect(screen.getByText('At least one person is required')).toHaveAttribute('role', 'alert')
 
-    await user.type(screen.getByLabelText('Stop 1 name'), 'Keep me')
+    await user.type(firstStop, 'Keep me')
     await user.click(screen.getByRole('button', { name: 'Reset trip' }))
     expect(screen.getByLabelText('Stop 1 name')).toHaveValue('Keep me')
     await user.click(screen.getByRole('button', { name: 'Reset trip' }))
@@ -102,7 +184,7 @@ describe('App', () => {
 
   it('debounces rapid incomplete edits and persists the latest draft', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    const view = render(<App />)
 
     const firstStop = await screen.findByLabelText('Stop 1 name')
     await user.type(firstStop, 'Rapid edits')
@@ -112,6 +194,10 @@ describe('App', () => {
     const loaded = await loadCurrentTrip()
     expect(loaded.status).toBe('restored')
     if (loaded.status === 'restored') expect(loaded.draft.stops[0].name).toBe('Rapid edits')
+
+    view.unmount()
+    render(<App />)
+    expect(await screen.findByLabelText('Stop 1 name')).toHaveValue('Rapid edits')
   })
 
   it.each([
