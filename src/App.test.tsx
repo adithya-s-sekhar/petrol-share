@@ -7,6 +7,10 @@ import { loadCurrentTrip, saveCurrentTrip, tripStorageConfig } from './persisten
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  localStorage.clear()
+  delete document.documentElement.dataset.theme
+  document.documentElement.style.colorScheme = ''
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
 })
 beforeEach(async () => {
@@ -18,6 +22,36 @@ beforeEach(async () => {
 })
 
 describe('App', () => {
+  it('follows the system theme and persists explicit theme choices', async () => {
+    const listeners = new Set<() => void>()
+    let systemIsDark = true
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      get matches() { return systemIsDark },
+      addEventListener: (_event: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
+    })))
+    const user = userEvent.setup()
+    const view = render(<App />)
+
+    const toggle = await screen.findByRole('button', { name: 'Theme: system. Switch theme' })
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+
+    systemIsDark = false
+    listeners.forEach((listener) => listener())
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+
+    await user.click(toggle)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+    expect(localStorage.getItem('petrol-share-theme')).toBe('light')
+    await user.click(screen.getByRole('button', { name: 'Theme: light. Switch theme' }))
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+
+    view.unmount()
+    render(<App />)
+    expect(await screen.findByRole('button', { name: 'Theme: dark. Switch theme' })).toBeInTheDocument()
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+  })
+
   it('builds a route with repeated stop occurrences', async () => {
     const user = userEvent.setup()
     render(<App />)
