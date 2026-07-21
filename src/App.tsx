@@ -5,6 +5,7 @@ import {
   ArrowUp,
   CarFront,
   CircleAlert,
+  ChevronDown,
   Fuel,
   MapPin,
   Monitor,
@@ -32,6 +33,7 @@ type ErrorMap = Record<string, string>
 type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'error'
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 type ThemePreference = 'system' | 'light' | 'dark'
+type EditorSection = 'route' | 'fuel' | 'people'
 
 const AUTOSAVE_DELAY_MS = 500
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
@@ -49,11 +51,14 @@ const styles: Record<string, string> = {
   'persistence-status': 'mx-auto max-w-[1180px] px-6 pt-[.65rem] text-right text-[.85rem] text-[#5d6c62]',
   'persistence-recovered': 'font-semibold !text-[#9a3412]', 'persistence-error': 'font-semibold !text-[#9a3412]',
   hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
+  'hero-compact': '!pb-7 !pt-8 max-[560px]:!pb-5 max-[560px]:!pt-6 [&_.eyebrow]:hidden [&_h1]:!text-[clamp(32px,4vw,46px)] [&_p]:hidden',
   eyebrow: 'inline-flex items-center gap-[7px] rounded-full border border-[#cce4d6] bg-[#eff9f3] px-3 py-[7px] text-[11px] font-extrabold uppercase tracking-[1.25px] text-[#167451]',
   'editor-grid': 'grid w-full min-w-0 grid-cols-[minmax(0,1.12fr)_minmax(360px,.88fr)] items-start gap-6 max-[880px]:grid-cols-1',
   'editor-column': 'grid min-w-0 gap-6', 'results-column': 'sticky top-[92px] grid min-w-0 gap-6 max-[880px]:static',
   panel: 'min-w-0 max-w-full rounded-[18px] border border-[#dfe6e1] bg-white/95 p-[25px] shadow-[0_8px_32px_rgba(36,67,56,.055)] max-[560px]:rounded-[15px] max-[560px]:px-[15px] max-[560px]:py-[19px]',
   'panel-heading': 'mb-6 flex items-start gap-3.5 [&_h2]:mb-1 [&_h2]:mt-px [&_h2]:text-[19px] [&_h2]:tracking-[-.35px] [&_p]:m-0 [&_p]:text-[13px] [&_p]:leading-6 [&_p]:text-[#7a8581] max-[560px]:mb-5',
+  'panel-collapsed': '!p-0', 'section-toggle': 'flex min-h-[76px] w-full items-center gap-3.5 rounded-[18px] border-0 bg-transparent px-[25px] py-4 text-left max-[560px]:rounded-[15px] max-[560px]:px-[15px] [&>div]:min-w-0 [&_h2]:m-0 [&_h2]:text-[17px] [&_p]:m-0 [&_p]:overflow-hidden [&_p]:text-ellipsis [&_p]:whitespace-nowrap [&_p]:text-[13px] [&_p]:font-semibold [&_p]:text-[#62716b] [&_svg]:ml-auto [&_svg]:shrink-0 [&_svg]:text-[#668078]',
+  'done-button': 'mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[9px] border border-[#b7d5c6] bg-[#eaf5ef] px-4 py-2 font-extrabold text-[#176c4d] hover:bg-[#dceee5]',
   compact: '!mb-[18px]', step: 'grid size-[31px] shrink-0 place-items-center rounded-[9px] bg-[#17875e] text-[13px] font-extrabold text-white',
   'stops-list': 'mb-3.5 grid list-none gap-2.5 p-0', 'people-list': 'mb-3.5 grid gap-2.5',
   'stop-row': 'flex items-start gap-[9px] max-[560px]:flex-wrap', 'person-row': 'flex items-start gap-[9px]',
@@ -88,6 +93,7 @@ const styles: Record<string, string> = {
   'share-button': 'inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#9be5c1]/40 bg-[#80d6ac] px-[18px] py-2.5 font-extrabold text-[#163b30] hover:not-disabled:bg-[#96e2bc]',
   'share-status': 'mb-0 mt-2.5 text-center text-xs text-[#b8cbc4]', 'share-error': '!text-[#ffe4a3]',
   'loading-screen': 'grid min-h-screen place-content-center justify-items-center gap-3 text-[#47604f] [&_svg]:size-8',
+  'mobile-result-action': 'fixed inset-x-3 bottom-3 z-20 hidden min-h-[52px] items-center justify-center gap-2 rounded-xl bg-[#173f34] px-5 font-extrabold text-white no-underline shadow-[0_10px_30px_rgba(18,59,47,.3)] max-[560px]:flex',
 }
 
 function classes(names: string): string {
@@ -136,11 +142,16 @@ function App() {
   const [shareError, setShareError] = useState('')
   const [shareMessageCopied, setShareMessageCopied] = useState(false)
   const [mobileAssignments, setMobileAssignments] = useState(() => window.innerWidth <= 560)
+  const [resultsVisible, setResultsVisible] = useState(false)
+  const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(['route', 'fuel', 'people']))
   const hydratedDraftRef = useRef<string | null>(null)
   const saveSequenceRef = useRef(0)
+  const resultsRef = useRef<HTMLElement>(null)
+  const sectionButtonRefs = useRef<Partial<Record<EditorSection, HTMLButtonElement>>>({})
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
+  const hasResult = result !== null
   const stopsById = new Map(draft.stops.map((stop) => [stop.id, stop.name || 'Unnamed stop']))
 
   useEffect(() => {
@@ -161,6 +172,17 @@ function App() {
     return () => window.removeEventListener('resize', updateAssignmentLayout)
   }, [])
 
+  useEffect(() => {
+    const card = resultsRef.current
+    if (!hasResult || !card || !globalThis.IntersectionObserver) {
+      setResultsVisible(false)
+      return
+    }
+    const observer = new IntersectionObserver(([entry]) => setResultsVisible(entry.isIntersecting), { threshold: 0.15 })
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [hasResult])
+
   function cycleTheme() {
     const nextPreference = themePreference === 'system' ? 'light' : themePreference === 'light' ? 'dark' : 'system'
     setThemePreference(nextPreference)
@@ -176,6 +198,7 @@ function App() {
         const initialDraft = loaded.status === 'restored' ? loaded.draft : createBlankTripDraft()
         hydratedDraftRef.current = JSON.stringify(initialDraft)
         setDraft(initialDraft)
+        if (loaded.status === 'restored' && editableTripDraftSchema.safeParse(initialDraft).success) setOpenSections(new Set())
         setPersistenceStatus(loaded.status === 'recovered' ? 'recovered' : 'idle')
         setHydrated(true)
       })
@@ -284,12 +307,31 @@ function App() {
     if (window.confirm('Reset the complete trip? All stops, people, distances, and settings will be cleared.')) {
       setDraft(createBlankTripDraft())
       setSubmitted(false)
+      setOpenSections(new Set(['route', 'fuel', 'people']))
     }
   }
 
   function revealResults() {
     setSubmitted(true)
     if (!parsed.success) requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+  }
+
+  function openSection(section: EditorSection, firstFieldId: string) {
+    setOpenSections((current) => new Set(current).add(section))
+    requestAnimationFrame(() => document.getElementById(firstFieldId)?.focus())
+  }
+
+  function closeSection(section: EditorSection, nextSection?: EditorSection) {
+    setOpenSections((current) => {
+      const next = new Set(current)
+      next.delete(section)
+      return next
+    })
+    requestAnimationFrame(() => {
+      if (!nextSection) return sectionButtonRefs.current[section]?.focus()
+      const firstFieldId = nextSection === 'fuel' ? 'economy' : `person-${draft.people[0]?.id}`
+      ;(document.getElementById(firstFieldId) ?? sectionButtonRefs.current[nextSection])?.focus()
+    })
   }
 
   async function shareResult() {
@@ -329,6 +371,11 @@ function App() {
     error: 'Could not save changes. Keep this page open and try another edit.',
   }[persistenceStatus]
   const currentStop = draft.stops.at(-1)
+  const totalDistance = draft.legs.reduce((sum, leg) => sum + (leg.distanceKm ?? 0), 0)
+  const routeComplete = draft.stops.every((stop) => stop.name.trim()) && draft.legs.every((leg) => leg.distanceKm !== null && leg.distanceKm > 0)
+  const fuelComplete = (draft.fuelSettings.fuelEconomyKmpl ?? 0) > 0 && (draft.fuelSettings.fuelPricePerLitre ?? 0) > 0 && draft.fuelSettings.currency.length === 3
+  const peopleComplete = draft.people.length > 0 && draft.people.every((person) => person.name.trim())
+  const hasProgress = draft.stops.some((stop) => stop.name.trim()) || draft.people.length > 0 || draft.legs.some((leg) => leg.distanceKm !== null)
   const returnStops = draft.stops.filter((stop, index, stops) => {
     const name = stop.name.trim().toLocaleLowerCase()
     return name !== ''
@@ -350,7 +397,7 @@ function App() {
 
       <main id="top">
         <div className={classes(`persistence-status persistence-${persistenceStatus}`)} role="status" aria-live="polite">{persistenceMessage}</div>
-        <section className={classes("hero")} aria-labelledby="page-title">
+        <section className={classes(`hero${hasProgress ? ' hero-compact' : ''}`)} aria-labelledby="page-title">
           <div className={classes("eyebrow")}><CarFront size={16} /> Fair fuel costs, leg by leg</div>
           <h1 id="page-title">Plan the route.<br /><span>Split the ride.</span></h1>
           <p>Build your journey, choose who rode each leg, and get a fair fuel split in seconds.</p>
@@ -358,8 +405,10 @@ function App() {
 
         <div className={classes("editor-grid")}>
           <div className={classes("editor-column")}>
-            <section className={classes("panel")} aria-labelledby="route-title">
+            <section className={classes(`panel${openSections.has('route') ? '' : ' panel-collapsed'}`)} aria-labelledby="route-title">
+              {!openSections.has('route') ? <button ref={(node) => { if (node) sectionButtonRefs.current.route = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="route-content" onClick={() => openSection('route', `stop-${draft.stops[0].id}`)}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>{draft.stops.length} stops · {totalDistance.toLocaleString(undefined, { maximumFractionDigits: 2 })} km</p></div><ChevronDown aria-hidden="true" /></button> : <>
               <div className={classes("panel-heading")}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>Each stop is a distinct visit, even when its name repeats.</p></div></div>
+              <div id="route-content">
               <ol className={classes("stops-list")}>
                 {draft.stops.map((stop, index) => {
                   const errorId = `stop-${stop.id}-error`
@@ -395,20 +444,26 @@ function App() {
                   })}
                 </div>
               </div>
+              {routeComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('route', 'fuel')}>Done with route <ArrowRight size={18} /></button>}
+              </div></>}
             </section>
 
-            <section className={classes("panel")} aria-labelledby="fuel-title">
+            <section className={classes(`panel${openSections.has('fuel') ? '' : ' panel-collapsed'}`)} aria-labelledby="fuel-title">
+              {!openSections.has('fuel') ? <button ref={(node) => { if (node) sectionButtonRefs.current.fuel = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="fuel-content" onClick={() => openSection('fuel', 'economy')}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>{draft.fuelSettings.fuelEconomyKmpl} km/L · {formatCurrency(draft.fuelSettings.fuelPricePerLitre ?? 0, draft.fuelSettings.currency)}/L</p></div><ChevronDown aria-hidden="true" /></button> : <>
               <div className={classes("panel-heading")}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>Use the average economy for the complete journey.</p></div></div>
-              <div className={classes("fuel-fields")}>
+              <div id="fuel-content" className={classes("fuel-fields")}>
                 <div className={classes("form-field")}><label htmlFor="economy">Fuel economy</label><div className={classes("unit-input")}><input id="economy" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 15" value={draft.fuelSettings.fuelEconomyKmpl ?? ''} aria-invalid={Boolean(errors['fuelSettings.fuelEconomyKmpl'])} aria-describedby="economy-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelEconomyKmpl: numberFromInput(event.target.value) } })} /><span>km/L</span></div><FieldError id="economy-error" message={errors['fuelSettings.fuelEconomyKmpl']} /></div>
                 <div className={classes("form-field")}><label htmlFor="fuel-price">Price per litre</label><input id="fuel-price" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 105" value={draft.fuelSettings.fuelPricePerLitre ?? ''} aria-invalid={Boolean(errors['fuelSettings.fuelPricePerLitre'])} aria-describedby="price-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelPricePerLitre: numberFromInput(event.target.value) } })} /><FieldError id="price-error" message={errors['fuelSettings.fuelPricePerLitre']} /></div>
                 <div className={classes("form-field currency-field")}><label htmlFor="currency">Currency</label><input id="currency" maxLength={3} autoCapitalize="characters" value={draft.fuelSettings.currency} aria-invalid={Boolean(errors['fuelSettings.currency'])} aria-describedby="currency-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, currency: event.target.value.toUpperCase() } })} /><FieldError id="currency-error" message={errors['fuelSettings.currency']} /></div>
               </div>
+              {fuelComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('fuel', 'people')}>Done with fuel details <ArrowRight size={18} /></button>}
+              </>}
             </section>
 
-            <section className={classes("panel")} aria-labelledby="people-title">
+            <section className={classes(`panel${openSections.has('people') ? '' : ' panel-collapsed'}`)} aria-labelledby="people-title">
+              {!openSections.has('people') ? <button ref={(node) => { if (node) sectionButtonRefs.current.people = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="people-content" onClick={() => openSection('people', `person-${draft.people[0]?.id}`)}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>{draft.people.length} {draft.people.length === 1 ? 'rider' : 'riders'}</p></div><ChevronDown aria-hidden="true" /></button> : <>
               <div className={classes("panel-heading")}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>Add everyone who should share the fuel cost.</p></div></div>
-              <div className={classes("people-list")}>
+              <div id="people-content" className={classes("people-list")}>
                 {draft.people.map((person, index) => {
                   const error = errors[`people.${index}.name`]
                   const errorId = `person-${person.id}-error`
@@ -417,6 +472,8 @@ function App() {
               </div>
               <button className={classes("secondary-button full-button")} type="button" onClick={addPerson}><Plus size={18} /> Add person</button>
               {submitted && errors.people && <div className={classes("notice error-notice")} role="alert"><CircleAlert />{errors.people}</div>}
+              {peopleComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('people')}>Done adding riders <Users size={18} /></button>}
+              </>}
             </section>
           </div>
 
@@ -437,7 +494,7 @@ function App() {
               </>}
             </section>
 
-            <section className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">
+            <section ref={resultsRef} id="results" className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">
               <div className={classes("results-heading")}><div><span className={classes("results-kicker")}>Your split</span><h2 id="results-title">Journey summary</h2></div><Fuel /></div>
               {!result ? <div className={classes("results-empty")}><p>Complete the trip details to see your fair split.</p><button className={classes("primary-button")} type="button" onClick={revealResults}>Calculate split <ArrowRight size={18} /></button></div> : <>
                 <div className={classes("totals")}><div><span>Total distance</span><strong>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km</strong></div><div><span>Fuel used</span><strong>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</strong></div><div className={classes("total-cost")}><span>Total fuel cost</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
@@ -448,6 +505,7 @@ function App() {
           </aside>
         </div>
       </main>
+      {result && !resultsVisible && <a className={classes("mobile-result-action")} href="#results">View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} /></a>}
       <footer>Made for fair journeys.</footer>
     </div>
   )

@@ -28,8 +28,10 @@ test('calculates and persists a fair split for a local trip', async ({ page }) =
 
   await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
   await page.reload()
+  await page.getByRole('button', { name: /Build your route/ }).click()
   await expect(page.getByLabel('Stop 1 name')).toHaveValue('Home')
   await expect(page.getByLabel('Stop 2 name')).toHaveValue('Office')
+  await page.getByRole('button', { name: /Who was riding/ }).click()
   await expect(page.getByLabel('Asha rode from Home to Office')).toBeChecked()
   await expect(page.getByLabel('Ben rode from Home to Office')).toBeChecked()
   await expect(summary).toContainText('₹200.00')
@@ -107,4 +109,38 @@ test('keeps the accessible desktop assignment matrix', async ({ page }) => {
   await expect(table.getByRole('rowheader', { name: 'Asha' })).toBeVisible()
   await table.getByLabel('Asha rode from Home to Office').check()
   await expect(table.getByLabel('Asha rode from Home to Office')).toBeChecked()
+})
+
+test('collapses completed sections into editable summaries and manages focus', async ({ page }) => {
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('48')
+
+  await page.getByRole('button', { name: 'Done with route' }).click()
+  const routeSummary = page.getByRole('button', { name: /Build your route.*2 stops · 48 km/ })
+  await expect(routeSummary).toBeVisible()
+  await expect(page.getByLabel('Fuel economy')).toBeFocused()
+
+  await routeSummary.click()
+  await expect(page.getByLabel('Stop 1 name')).toBeFocused()
+  await page.getByLabel('Stop 2 name').fill('Studio')
+  await expect(page.getByLabel('Distance from Home to Studio in kilometres')).toHaveValue('48')
+})
+
+test('keeps a mobile result shortcut visible without obscuring the result', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('30')
+  await page.getByLabel('Fuel economy').fill('15')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+
+  const shortcut = page.getByRole('link', { name: 'View split · ₹200.00' })
+  await expect(shortcut).toBeVisible()
+  await shortcut.click()
+  await expect(page).toHaveURL(/#results$/)
+  await expect(page.getByRole('heading', { name: 'Journey summary' })).toBeInViewport()
+  await expect(shortcut).toBeHidden()
 })
