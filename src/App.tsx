@@ -6,12 +6,15 @@ import {
   CarFront,
   CircleAlert,
   ChevronDown,
+  Copy,
+  FolderOpen,
   Fuel,
   MapPin,
   Monitor,
   Moon,
   Plus,
   RotateCcw,
+  Save,
   Share2,
   Sun,
   Trash2,
@@ -39,11 +42,13 @@ import { createSummaryImage, shareSummary } from './shareSummary'
 import { usePersistedTrip } from './app/usePersistedTrip'
 import { useThemePreference } from './app/useThemePreference'
 import { useTripEditor } from './app/useTripEditor'
+import { saveStoredTrip, type StoredTrip } from './persistence/tripStorage'
 
 type ErrorMap = Record<string, string>
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 type EditorSection = 'route' | 'fuel' | 'people'
 type UndoRemoval = { draft: TripDraft; message: string }
+type TripDialog = { action: 'create' | 'rename' | 'delete'; trip?: StoredTrip } | null
 
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
@@ -54,6 +59,7 @@ const styles: Record<string, string> = {
   brand: 'flex min-h-11 items-center gap-2.5 text-[19px] tracking-[-.4px] text-[#18362d] no-underline',
   'brand-mark': 'grid size-9 place-items-center rounded-[11px] bg-[#14875d] text-white shadow-[0_5px_14px_rgba(20,135,93,.24)] [&_svg]:w-5',
   'header-actions': 'flex items-center gap-1',
+  'trips-button': 'inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#c7d8cf] bg-white px-3 text-sm font-extrabold text-[#176c4d] hover:bg-[#edf7f1] max-[560px]:px-2 max-[560px]:text-xs [&_svg]:size-4',
   'header-save-status': 'inline-flex min-w-[78px] items-center justify-end gap-1.5 px-2 text-xs font-bold text-[#5d6c62] max-[560px]:min-w-0 max-[560px]:px-1 [&_svg]:size-3.5',
   'theme-button': 'grid size-11 shrink-0 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] active:bg-[#dfeae4] [&_svg]:size-[18px]',
   'reset-button': 'inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#8f382f] hover:bg-[#fbecea] hover:text-[#7f2f27] active:bg-[#f5d8d4] max-[560px]:text-xs',
@@ -63,6 +69,15 @@ const styles: Record<string, string> = {
   'reset-dialog': 'm-0 w-[min(100%,440px)] rounded-2xl border-0 bg-white p-6 text-[#152a25] shadow-[0_20px_60px_rgba(10,35,27,.35)] [&_h2]:mb-2 [&_h2]:text-xl [&_p]:leading-6 [&_p]:text-[#5d6c62]',
   'dialog-actions': 'mt-6 flex justify-end gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:px-4 [&_button]:font-extrabold',
   'dialog-cancel': 'border border-[#cad7d0] bg-white text-[#29483e]', 'dialog-confirm': 'border-0 bg-[#a13c31] text-white',
+  'library': 'mx-auto mb-7 w-[min(100%-40px,1132px)] rounded-2xl border border-[#d7e3dc] bg-white p-5 shadow-[0_10px_32px_rgba(36,67,56,.08)] max-[560px]:w-[calc(100%-20px)] max-[560px]:p-4',
+  'library-heading': 'mb-4 flex items-center justify-between gap-3 [&_h2]:m-0 [&_h2]:text-xl [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-sm [&_p]:text-[#6b7974]',
+  'library-actions': 'flex flex-wrap gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#bcd5c8] [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#176c4d]',
+  'trip-list': 'mt-4 grid gap-3',
+  'trip-card': 'grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border border-[#dfe6e1] p-4 max-[650px]:grid-cols-1 [&_h3]:m-0 [&_h3]:text-base [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-xs [&_p]:text-[#697772]',
+  'trip-card-active': 'border-[#52a37d] bg-[#f0f9f4]',
+  'trip-card-actions': 'flex flex-wrap items-center justify-end gap-1 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2.5 [&_button]:font-bold [&_button]:text-[#176c4d] [&_button:hover]:bg-[#e5f3eb] [&_button:last-child]:text-[#963b32]',
+  'template-label': 'mb-2 inline-flex rounded-full bg-[#e9efff] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#3c5790]',
+  'dialog-input': 'mt-4 grid gap-2 [&_label]:text-sm [&_label]:font-bold [&_input]:min-h-11',
   hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
   'hero-compact': '!pb-7 !pt-8 max-[560px]:!pb-5 max-[560px]:!pt-6 [&_.eyebrow]:hidden [&_h1]:!text-[clamp(32px,4vw,46px)] [&_p]:hidden',
   eyebrow: 'inline-flex items-center gap-[7px] rounded-full border border-[#cce4d6] bg-[#eff9f3] px-3 py-[7px] text-[11px] font-extrabold uppercase tracking-[1.25px] text-[#167451]',
@@ -128,6 +143,28 @@ function displayNumber(value: number | null, convert: (value: number) => number)
   return Number(convert(value).toFixed(6))
 }
 
+function recordId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function cloneDraft(source: TripDraft, template = false): TripDraft {
+  const stopIds = new Map(source.stops.map(({ id }) => [id, recordId()]))
+  const legIds = new Map(source.legs.map(({ id }) => [id, recordId()]))
+  const now = new Date().toISOString()
+  return {
+    ...structuredClone(source),
+    stops: source.stops.map((stop) => ({ ...stop, id: stopIds.get(stop.id)! })),
+    legs: source.legs.map((leg) => ({ ...leg, id: legIds.get(leg.id)!, fromStopId: stopIds.get(leg.fromStopId)!, toStopId: stopIds.get(leg.toStopId)! })),
+    people: template ? [] : source.people.map((person) => ({ ...person, id: recordId(), assignedLegIds: person.assignedLegIds.map((id) => legIds.get(id)!).filter(Boolean) })),
+    updatedAt: now,
+  }
+}
+
+function routeSummary(draft: TripDraft): string {
+  const names = draft.stops.map(({ name }) => name.trim()).filter(Boolean)
+  return names.length ? names.join(' → ') : 'Route not named yet'
+}
+
 function validationErrors(draft: TripDraft): ErrorMap {
   const result = editableTripDraftSchema.safeParse(draft)
   if (result.success) return {}
@@ -160,9 +197,13 @@ function App() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => defaultUnitSystem())
   const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(['route', 'fuel', 'people']))
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [tripDialog, setTripDialog] = useState<TripDialog>(null)
+  const [tripName, setTripName] = useState('')
+  const [libraryMessage, setLibraryMessage] = useState('')
   const [undoRemoval, setUndoRemoval] = useState<UndoRemoval | null>(null)
   const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
-  const { draft, setDraft, hydrated, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
+  const { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
   const resultsRef = useRef<HTMLElement>(null)
   const resetButtonRef = useRef<HTMLButtonElement>(null)
   const cancelResetRef = useRef<HTMLButtonElement>(null)
@@ -220,6 +261,66 @@ function App() {
     setOpenSections(new Set(['route', 'fuel', 'people']))
     setResetDialogOpen(false)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="Stop 1 name"]')?.focus())
+  }
+
+  function showTripDialog(action: NonNullable<TripDialog>['action'], trip?: StoredTrip) {
+    setTripName(action === 'rename' ? trip?.name ?? '' : action === 'create' ? 'Untitled trip' : '')
+    setTripDialog({ action, trip })
+  }
+
+  async function createTripFromDraft(name: string, source: TripDraft, template = false) {
+    const nextDraft = template ? cloneDraft(source, true) : source
+    const record: StoredTrip = { id: recordId(), name, kind: 'trip', draft: nextDraft, updatedAt: nextDraft.updatedAt }
+    await selectTrip(record)
+    setOpenSections(new Set(['route', 'fuel', 'people']))
+    setLibraryMessage(template ? `Created ${name} from a template. Add riders and adjust it for this journey.` : `Created ${name}.`)
+  }
+
+  async function submitTripDialog() {
+    if (!tripDialog) return
+    if (tripDialog.action === 'create') {
+      await createTripFromDraft(tripName.trim() || 'Untitled trip', createBlankTripDraft())
+    } else if (tripDialog.action === 'rename' && tripDialog.trip) {
+      const changed = { ...tripDialog.trip, name: tripName.trim() || 'Untitled trip', updatedAt: new Date().toISOString() }
+      await saveStoredTrip(changed)
+      setTrips((items) => items.map((item) => item.id === changed.id ? changed : item))
+      setLibraryMessage(`Renamed trip to ${changed.name}.`)
+    } else if (tripDialog.action === 'delete' && tripDialog.trip) {
+      const deleted = { ...tripDialog.trip, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+      await saveStoredTrip(deleted)
+      setTrips((items) => items.map((item) => item.id === deleted.id ? deleted : item))
+      setLibraryMessage(`${deleted.name} moved to Recently deleted.`)
+      if (deleted.id === activeTripId) await createTripFromDraft('Untitled trip', createBlankTripDraft())
+    }
+    setTripDialog(null)
+  }
+
+  async function duplicateTrip(trip: StoredTrip) {
+    const copy = cloneDraft(trip.draft)
+    await createTripFromDraft(`${trip.name} copy`, copy)
+  }
+
+  async function saveTemplate(trip: StoredTrip) {
+    const template: StoredTrip = { id: recordId(), name: `${trip.name} template`, kind: 'template', draft: cloneDraft(trip.draft, true), updatedAt: new Date().toISOString() }
+    await saveStoredTrip(template)
+    setTrips((items) => [template, ...items])
+    setLibraryMessage(`${template.name} is ready to reuse.`)
+  }
+
+  async function restoreTrip(trip: StoredTrip) {
+    const restored = { ...trip, deletedAt: undefined, updatedAt: new Date().toISOString() }
+    await saveStoredTrip(restored)
+    setTrips((items) => items.map((item) => item.id === restored.id ? restored : item))
+    setLibraryMessage(`${restored.name} restored.`)
+  }
+
+  async function openLibraryTrip(trip: StoredTrip) {
+    if (trip.kind === 'template') await createTripFromDraft(`Trip from ${trip.name}`, trip.draft, true)
+    else {
+      await selectTrip(trip)
+      setOpenSections(editableTripDraftSchema.safeParse(trip.draft).success ? new Set() : new Set(['route', 'fuel', 'people']))
+      setLibraryMessage(`Opened ${trip.name}.`)
+    }
   }
 
   function removeStop(stopId: string, index: number) {
@@ -294,6 +395,7 @@ function App() {
     idle: 'Autosave ready',
     saving: 'Saving…',
     saved: 'Saved',
+    migrated: 'Previous draft migrated to Saved trips.',
     recovered: 'Saved trip could not be restored. A new trip was started safely.',
     error: 'Could not save changes. Keep this page open and try another edit.',
   }[persistenceStatus]
@@ -315,6 +417,7 @@ function App() {
       <header className={classes("site-header")}>
         <a className={classes("brand")} href="#top" aria-label="Petrol Share home"><span className={classes("brand-mark")}><Fuel /></span><span>Petrol <strong>Share</strong></span></a>
         <div className={classes("header-actions")}>
+          <button className={classes("trips-button")} type="button" aria-expanded={libraryOpen} onClick={() => setLibraryOpen((open) => !open)}><FolderOpen /> Trips</button>
           <span className={classes("header-save-status")} role="status" aria-live="polite">{persistenceStatus === 'saving' ? 'Saving…' : persistenceStatus === 'error' ? 'Not saved' : persistenceStatus === 'saved' ? 'Saved' : 'Autosave'}</span>
           <button className={classes("theme-button")} type="button" onClick={cycleTheme} aria-label={`Theme: ${themePreference}. Switch theme`} title={`Theme: ${themePreference}`}>
             {themePreference === 'system' ? <Monitor /> : themePreference === 'light' ? <Sun /> : <Moon />}
@@ -325,6 +428,23 @@ function App() {
 
       <main id="top">
         {(persistenceStatus === 'error' || persistenceStatus === 'recovered') && <div className={classes("recovery-notice")} role="alert"><CircleAlert /> <span>{persistenceMessage}</span>{persistenceStatus === 'error' && <button type="button" onClick={retryAutosave}>Try saving again</button>}</div>}
+        {persistenceStatus === 'migrated' && <div className={classes("recovery-notice")} role="status"><Save /><span>Your previous draft was moved safely into Saved trips.</span></div>}
+        {libraryOpen && <section className={classes("library")} aria-labelledby="trip-library-title">
+          <div className={classes("library-heading")}><div><h2 id="trip-library-title">Saved trips</h2><p>Keep journeys separate or reuse a familiar route.</p></div><button className={classes("trips-button")} type="button" onClick={() => setLibraryOpen(false)}>Close</button></div>
+          <div className={classes("library-actions")}><button type="button" onClick={() => showTripDialog('create')}><Plus size={17} /> New trip</button></div>
+          {libraryMessage && <p role="status">{libraryMessage}</p>}
+          <div className={classes("trip-list")}>
+            {trips.filter(({ deletedAt }) => !deletedAt).map((trip) => {
+              const complete = editableTripDraftSchema.safeParse(trip.draft)
+              const total = complete.success ? calculateTrip(complete.data).totalCost : null
+              return <article className={classes(`trip-card${trip.id === activeTripId ? ' trip-card-active' : ''}`)} key={trip.id} aria-label={trip.name}>
+                <div>{trip.kind === 'template' && <span className={classes("template-label")}>Template</span>}<h3>{trip.name}{trip.id === activeTripId ? ' · Current' : ''}</h3><p>{routeSummary(trip.draft)}</p><p>Updated {new Date(trip.updatedAt).toLocaleDateString()} · {total === null ? 'Incomplete' : formatCurrency(total, trip.draft.fuelSettings.currency)}</p></div>
+                <div className={classes("trip-card-actions")}><button type="button" onClick={() => void openLibraryTrip(trip)}>{trip.kind === 'template' ? 'Use template' : 'Open'}</button>{trip.kind === 'trip' && <><button type="button" onClick={() => void duplicateTrip(trip)}><Copy size={15} /> Duplicate</button><button type="button" onClick={() => void saveTemplate(trip)}>Save template</button></>}<button type="button" onClick={() => showTripDialog('rename', trip)}>Rename</button><button type="button" onClick={() => showTripDialog('delete', trip)}>Delete</button></div>
+              </article>
+            })}
+          </div>
+          {trips.some(({ deletedAt }) => deletedAt) && <details><summary>Recently deleted</summary><div className={classes("trip-list")}>{trips.filter(({ deletedAt }) => deletedAt).map((trip) => <article className={classes("trip-card")} key={trip.id} aria-label={trip.name}><div><h3>{trip.name}</h3><p>{routeSummary(trip.draft)}</p></div><div className={classes("trip-card-actions")}><button type="button" onClick={() => void restoreTrip(trip)}>Restore</button></div></article>)}</div></details>}
+        </section>}
         <section className={classes(`hero${hasProgress ? ' hero-compact' : ''}`)} aria-labelledby="page-title">
           <div className={classes("eyebrow")}><CarFront size={16} /> Fair fuel costs, leg by leg</div>
           <h1 id="page-title">Plan the route.<br /><span>Split the ride.</span></h1>
@@ -443,6 +563,7 @@ function App() {
       </main>
       {undoRemoval && <div className={classes("undo-toast")} role="status" aria-live="polite"><span>{undoRemoval.message}</span><button type="button" onClick={undoLastRemoval}>Undo</button></div>}
       {resetDialogOpen && <div className={classes("dialog-backdrop")} onMouseDown={(event) => { if (event.target === event.currentTarget) closeResetDialog() }}><div className={classes("reset-dialog")} role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description" onKeyDown={(event) => { if (event.key === 'Escape') closeResetDialog() }}><h2 id="reset-dialog-title">Reset the complete trip?</h2><p id="reset-dialog-description">This deletes all stops, people, distances, assignments, and fuel settings from this device.</p><div className={classes("dialog-actions")}><button ref={cancelResetRef} className={classes("dialog-cancel")} type="button" onClick={closeResetDialog}>Cancel</button><button className={classes("dialog-confirm")} type="button" onClick={resetTrip}>Reset trip</button></div></div></div>}
+      {tripDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="trip-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape') setTripDialog(null) }}><h2 id="trip-dialog-title">{tripDialog.action === 'create' ? 'Create a new trip' : tripDialog.action === 'rename' ? `Rename ${tripDialog.trip?.name}` : `Delete ${tripDialog.trip?.name}?`}</h2>{tripDialog.action === 'delete' ? <p>The trip will move to Recently deleted, where you can restore it later.</p> : <div className={classes("dialog-input")}><label htmlFor="trip-name">Trip name</label><input id="trip-name" autoFocus value={tripName} onChange={(event) => setTripName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void submitTripDialog() }} /></div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setTripDialog(null)}>Cancel</button><button className={classes(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>{tripDialog.action === 'create' ? 'Create trip' : tripDialog.action === 'rename' ? 'Save name' : 'Move to Recently deleted'}</button></div></div></div>}
       {result && !resultsVisible && <a className={classes("mobile-result-action")} href="#results">View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} /></a>}
       <footer>Made for fair journeys.</footer>
     </div>
