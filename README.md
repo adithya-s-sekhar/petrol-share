@@ -2,6 +2,8 @@
 
 Petrol Share is a mobile-first, installable web app for dividing a trip's fuel cost fairly among the people who travelled on each leg. It works without accounts, saves the current trip on the device, and keeps the app available offline after an initial production visit.
 
+[Use Petrol Share](https://adithya-s-sekhar.github.io/petrol-share/)
+
 ## Prerequisites
 
 - [Node.js 24](https://nodejs.org/) (the version used by CI)
