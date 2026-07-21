@@ -72,7 +72,12 @@ const styles: Record<string, string> = {
   'distance-source': 'mt-[5px] inline-block rounded-full px-[7px] py-0.5 text-[10px] font-extrabold tracking-[.2px]', 'distance-source-reused': 'bg-[#dff2e8] text-[#176c4d]', 'distance-source-manual': 'bg-[#e7ebe9] text-[#596762]',
   'field-error': 'mt-[5px] flex items-center gap-1 text-[11px] text-[#b53b31] [&_svg]:shrink-0',
   'fuel-fields': 'grid grid-cols-[1fr_1fr_100px] gap-3 max-[560px]:grid-cols-2', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': 'max-[560px]:col-span-full',
-  'assignment-panel': 'max-[880px]:order-none', 'assignment-scroll': '-mx-2 -mb-[5px] max-w-[calc(100%+1rem)] overflow-x-auto px-2 pb-[5px]', 'empty-state': 'rounded-[11px] border border-dashed border-[#d5deda] bg-[#fafbfa] px-[18px] py-[30px] text-center text-[#88938f] [&_svg]:mx-auto [&_svg]:w-7 [&_p]:mb-0 [&_p]:mt-[5px] [&_p]:text-[13px]',
+  'assignment-panel': 'max-[880px]:order-none', 'assignment-scroll': '-mx-2 -mb-[5px] max-w-[calc(100%+1rem)] overflow-x-auto px-2 pb-[5px] max-[560px]:hidden',
+  'assignment-cards': 'hidden gap-3 max-[560px]:grid', 'assignment-card': 'min-w-0 rounded-xl border border-[#dfe6e1] bg-[#f8faf8] p-3.5',
+  'assignment-card-heading': 'mb-3 flex min-w-0 items-start justify-between gap-3 border-b border-[#e1e8e4] pb-3', 'assignment-route': 'min-w-0 text-sm font-extrabold leading-5 [&_span]:block [&_span]:break-words [&_svg]:my-1 [&_svg]:size-4 [&_svg]:text-[#82918b]',
+  'select-all-button': 'min-h-11 shrink-0 rounded-lg border border-[#9bcab4] bg-white px-3 py-2 text-xs font-extrabold text-[#176c4d] hover:bg-[#e8f5ee] active:bg-[#d7ecdf]',
+  'assignment-chip-list': 'grid gap-2', 'assignment-chip': 'flex min-h-11 min-w-0 cursor-pointer items-center gap-3 rounded-lg border border-[#d7e0db] bg-white px-3 py-2.5 text-sm font-bold [&:has(input:checked)]:border-[#64ad89] [&:has(input:checked)]:bg-[#e5f4ec] [&:has(input:focus-visible)]:outline [&:has(input:focus-visible)]:outline-3 [&:has(input:focus-visible)]:outline-offset-2 [&:has(input:focus-visible)]:outline-[#0f7652] [&_span]:min-w-0 [&_span]:break-words',
+  'empty-state': 'rounded-[11px] border border-dashed border-[#d5deda] bg-[#fafbfa] px-[18px] py-[30px] text-center text-[#88938f] [&_svg]:mx-auto [&_svg]:w-7 [&_p]:mb-0 [&_p]:mt-[5px] [&_p]:text-[13px]',
   'results-card': 'min-w-0 max-w-full overflow-hidden rounded-[19px] bg-[#173f34] text-white shadow-[0_16px_40px_rgba(18,59,47,.18)]',
   'results-heading': 'flex items-center justify-between border-b border-white/10 px-[25px] pb-5 pt-6 max-[560px]:px-5 [&_h2]:mb-0 [&_h2]:mt-1 [&_h2]:font-serif [&_h2]:text-2xl [&_h2]:font-medium [&>svg]:w-7 [&>svg]:text-[#6ec59e]', 'results-kicker': 'text-[10px] font-extrabold uppercase tracking-[1.3px] text-[#83d0ad]',
   'results-empty': 'px-[25px] pb-[25px] pt-[31px] text-center [&_p]:text-[13px] [&_p]:leading-[1.6] [&_p]:text-[#b8cbc4]', 'primary-button': 'mt-2 inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border-0 bg-[#80d6ac] px-[18px] py-2.5 font-bold text-[#163b30] hover:bg-[#96e2bc]',
@@ -130,6 +135,7 @@ function App() {
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
   const [shareError, setShareError] = useState('')
   const [shareMessageCopied, setShareMessageCopied] = useState(false)
+  const [mobileAssignments, setMobileAssignments] = useState(() => window.innerWidth <= 560)
   const hydratedDraftRef = useRef<string | null>(null)
   const saveSequenceRef = useRef(0)
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
@@ -148,6 +154,12 @@ function App() {
     if (themePreference === 'system') media?.addEventListener('change', applyTheme)
     return () => media?.removeEventListener('change', applyTheme)
   }, [themePreference])
+
+  useEffect(() => {
+    const updateAssignmentLayout = () => setMobileAssignments(window.innerWidth <= 560)
+    window.addEventListener('resize', updateAssignmentLayout)
+    return () => window.removeEventListener('resize', updateAssignmentLayout)
+  }, [])
 
   function cycleTheme() {
     const nextPreference = themePreference === 'system' ? 'light' : themePreference === 'light' ? 'dark' : 'system'
@@ -242,6 +254,30 @@ function App() {
   function addPerson() {
     const person: Person = { id: createId(), name: '', assignedLegIds: [] }
     update({ ...draft, people: [...draft.people, person] })
+  }
+
+  function setLegAssignment(personId: string, legId: string, assigned: boolean) {
+    update({
+      ...draft,
+      people: draft.people.map((person) => person.id !== personId ? person : {
+        ...person,
+        assignedLegIds: assigned
+          ? [...new Set([...person.assignedLegIds, legId])]
+          : person.assignedLegIds.filter((id) => id !== legId),
+      }),
+    })
+  }
+
+  function setAllLegAssignments(legId: string, assigned: boolean) {
+    update({
+      ...draft,
+      people: draft.people.map((person) => ({
+        ...person,
+        assignedLegIds: assigned
+          ? [...new Set([...person.assignedLegIds, legId])]
+          : person.assignedLegIds.filter((id) => id !== legId),
+      })),
+    })
   }
 
   function resetTrip() {
@@ -387,7 +423,18 @@ function App() {
           <aside className={classes("results-column")}>
             <section className={classes("panel assignment-panel")} aria-labelledby="assignment-title">
               <div className={classes("panel-heading compact")}><span className={classes("step")}>4</span><div><h2 id="assignment-title">Assign each leg</h2><p>Check who travelled on each part.</p></div></div>
-              {draft.people.length === 0 ? <div className={classes("empty-state")}><Users /><p>Add people to start assigning riders.</p></div> : <div className={classes("assignment-scroll")}><table><thead><tr><th scope="col">Passenger</th>{draft.legs.map((leg) => <th scope="col" key={leg.id}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={13} /><span>{stopsById.get(leg.toStopId)}</span></th>)}</tr></thead><tbody>{draft.people.map((person) => <tr key={person.id}><th scope="row">{person.name || 'Unnamed'}</th>{draft.legs.map((leg) => { const assignmentLabel = `${person.name || 'Unnamed person'} rode from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)}`; return <td key={leg.id}><label className="assignment-target"><input type="checkbox" aria-label={assignmentLabel} checked={person.assignedLegIds.includes(leg.id)} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id !== person.id ? item : { ...item, assignedLegIds: event.target.checked ? [...item.assignedLegIds, leg.id] : item.assignedLegIds.filter((id) => id !== leg.id) }) })} /><span className={classes("sr-only")}>{assignmentLabel}</span></label></td> })}</tr>)}</tbody></table></div>}
+              {draft.people.length === 0 ? <div className={classes("empty-state")}><Users /><p>Add people to start assigning riders.</p></div> : <>
+                {!mobileAssignments && <div className={classes("assignment-scroll")}><table><thead><tr><th scope="col">Passenger</th>{draft.legs.map((leg) => <th scope="col" key={leg.id}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={13} /><span>{stopsById.get(leg.toStopId)}</span></th>)}</tr></thead><tbody>{draft.people.map((person) => <tr key={person.id}><th scope="row">{person.name || 'Unnamed'}</th>{draft.legs.map((leg) => { const assignmentLabel = `${person.name || 'Unnamed person'} rode from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)}`; return <td key={leg.id}><label className="assignment-target"><input type="checkbox" aria-label={assignmentLabel} checked={person.assignedLegIds.includes(leg.id)} onChange={(event) => setLegAssignment(person.id, leg.id, event.target.checked)} /><span className={classes("sr-only")}>{assignmentLabel}</span></label></td> })}</tr>)}</tbody></table></div>}
+                {mobileAssignments && <div className={classes("assignment-cards")}>{draft.legs.map((leg) => {
+                  const from = stopsById.get(leg.fromStopId)
+                  const to = stopsById.get(leg.toStopId)
+                  const allAssigned = draft.people.every((person) => person.assignedLegIds.includes(leg.id))
+                  return <section className={classes("assignment-card")} aria-label={`Riders from ${from} to ${to}`} key={leg.id}>
+                    <div className={classes("assignment-card-heading")}><div className={classes("assignment-route")}><span>{from}</span><ArrowDown aria-hidden="true" /><span>{to}</span></div><button className={classes("select-all-button")} type="button" onClick={() => setAllLegAssignments(leg.id, !allAssigned)}>{allAssigned ? 'Clear all' : 'Select all'}</button></div>
+                    <div className={classes("assignment-chip-list")}>{draft.people.map((person) => { const assignmentLabel = `${person.name || 'Unnamed person'} rode from ${from} to ${to}`; return <label className={classes("assignment-chip")} key={person.id}><input type="checkbox" aria-label={assignmentLabel} checked={person.assignedLegIds.includes(leg.id)} onChange={(event) => setLegAssignment(person.id, leg.id, event.target.checked)} /><span>{person.name || 'Unnamed'}</span></label> })}</div>
+                  </section>
+                })}</div>}
+              </>}
             </section>
 
             <section className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">

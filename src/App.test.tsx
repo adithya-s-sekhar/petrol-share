@@ -197,7 +197,9 @@ describe('App', () => {
     await user.type(screen.getByLabelText('Person 1 name'), 'Asha')
 
     const assignment = screen.getByRole('checkbox', { name: 'Asha rode from A to B' })
-    expect(screen.getByRole('columnheader', { name: 'AB' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Riders from A to B' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select all' })).toBeInTheDocument()
     assignment.focus()
     await user.keyboard(' ')
     expect(assignment).toBeChecked()
