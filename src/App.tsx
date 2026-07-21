@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -22,22 +22,18 @@ import {
   createBlankTripDraft,
   editableTripDraftSchema,
   formatCurrency,
-  normalizeTripRoute,
-  type Person,
   type TripDraft,
 } from './domain'
-import { loadCurrentTrip, saveCurrentTrip } from './persistence/tripStorage'
 import { createSummaryImage, shareSummary } from './shareSummary'
+import { usePersistedTrip } from './app/usePersistedTrip'
+import { useThemePreference } from './app/useThemePreference'
+import { useTripEditor } from './app/useTripEditor'
 
 type ErrorMap = Record<string, string>
-type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'error'
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
-type ThemePreference = 'system' | 'light' | 'dark'
 type EditorSection = 'route' | 'fuel' | 'people'
 
-const AUTOSAVE_DELAY_MS = 500
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
-const THEME_STORAGE_KEY = 'petrol-share-theme'
 
 const styles: Record<string, string> = {
   'sr-only': 'absolute -m-px size-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]',
@@ -105,10 +101,6 @@ function classes(names: string): string {
   return names.split(/\s+/).flatMap((name) => [name, styles[name] ?? '']).filter(Boolean).join(' ')
 }
 
-function createId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
-}
-
 function numberFromInput(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
 }
@@ -135,46 +127,28 @@ function IconButton({ label, disabled, destructive = false, onClick, children }:
 }
 
 function App() {
-  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY)
-    return stored === 'light' || stored === 'dark' ? stored : 'system'
-  })
-  const [draft, setDraft] = useState<TripDraft>(() => createBlankTripDraft())
+  const { themePreference, cycleTheme } = useThemePreference()
   const [submitted, setSubmitted] = useState(false)
-  const [hydrated, setHydrated] = useState(false)
-  const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>('loading')
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
   const [shareError, setShareError] = useState('')
   const [shareMessageCopied, setShareMessageCopied] = useState(false)
   const [mobileAssignments, setMobileAssignments] = useState(() => window.innerWidth <= 560)
   const [resultsVisible, setResultsVisible] = useState(false)
   const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(['route', 'fuel', 'people']))
-  const hydratedDraftRef = useRef<string | null>(null)
-  const saveSequenceRef = useRef(0)
+  const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
+  const { draft, setDraft, hydrated, persistenceStatus } = usePersistedTrip(closeRestoredSections)
   const resultsRef = useRef<HTMLElement>(null)
   const sectionButtonRefs = useRef<Partial<Record<EditorSection, HTMLButtonElement>>>({})
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
   const hasResult = result !== null
-  const stopsById = new Map(draft.stops.map((stop) => [stop.id, stop.name || 'Unnamed stop']))
+  const { stopsById, update, changeStops, addStop, returnToStop, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments } = useTripEditor(draft, setDraft)
   const calculationLegs = result ? draft.legs.map((leg) => {
     const riders = draft.people.filter((person) => person.assignedLegIds.includes(leg.id))
     const cost = (leg.distanceKm ?? 0) / draft.fuelSettings.fuelEconomyKmpl! * draft.fuelSettings.fuelPricePerLitre!
     return { leg, riders, cost }
   }) : []
-
-  useEffect(() => {
-    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
-    const applyTheme = () => {
-      const resolvedTheme = themePreference === 'system' ? (media?.matches ? 'dark' : 'light') : themePreference
-      document.documentElement.dataset.theme = resolvedTheme
-      document.documentElement.style.colorScheme = resolvedTheme
-    }
-    applyTheme()
-    if (themePreference === 'system') media?.addEventListener('change', applyTheme)
-    return () => media?.removeEventListener('change', applyTheme)
-  }, [themePreference])
 
   useEffect(() => {
     const updateAssignmentLayout = () => setMobileAssignments(window.innerWidth <= 560)
@@ -192,126 +166,6 @@ function App() {
     observer.observe(card)
     return () => observer.disconnect()
   }, [hasResult])
-
-  function cycleTheme() {
-    const nextPreference = themePreference === 'system' ? 'light' : themePreference === 'light' ? 'dark' : 'system'
-    setThemePreference(nextPreference)
-    if (nextPreference === 'system') localStorage.removeItem(THEME_STORAGE_KEY)
-    else localStorage.setItem(THEME_STORAGE_KEY, nextPreference)
-  }
-
-  useEffect(() => {
-    let active = true
-    void loadCurrentTrip()
-      .then((loaded) => {
-        if (!active) return
-        const initialDraft = loaded.status === 'restored' ? loaded.draft : createBlankTripDraft()
-        hydratedDraftRef.current = JSON.stringify(initialDraft)
-        setDraft(initialDraft)
-        if (loaded.status === 'restored' && editableTripDraftSchema.safeParse(initialDraft).success) setOpenSections(new Set())
-        setPersistenceStatus(loaded.status === 'recovered' ? 'recovered' : 'idle')
-        setHydrated(true)
-      })
-      .catch(() => {
-        if (!active) return
-        const blankDraft = createBlankTripDraft()
-        hydratedDraftRef.current = JSON.stringify(blankDraft)
-        setDraft(blankDraft)
-        setPersistenceStatus('recovered')
-        setHydrated(true)
-      })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    if (!hydrated) return
-    const serializedDraft = JSON.stringify(draft)
-    if (serializedDraft === hydratedDraftRef.current) return
-
-    const sequence = ++saveSequenceRef.current
-    setPersistenceStatus('saving')
-    const timeout = window.setTimeout(() => {
-      void saveCurrentTrip(draft)
-        .then(() => {
-          if (saveSequenceRef.current !== sequence) return
-          hydratedDraftRef.current = serializedDraft
-          setPersistenceStatus('saved')
-        })
-        .catch(() => {
-          if (saveSequenceRef.current === sequence) setPersistenceStatus('error')
-        })
-    }, AUTOSAVE_DELAY_MS)
-    return () => window.clearTimeout(timeout)
-  }, [draft, hydrated])
-
-  function update(next: TripDraft) {
-    setDraft({ ...next, updatedAt: new Date().toISOString() })
-  }
-
-  function changeStops(stops: TripDraft['stops']) {
-    update(normalizeTripRoute(draft, stops))
-  }
-
-  function addStop() {
-    changeStops([...draft.stops, { id: createId(), name: '' }])
-  }
-
-  function returnToStop(stop: TripDraft['stops'][number]) {
-    changeStops([...draft.stops, { id: createId(), name: stop.name.trim() }])
-  }
-
-  function reuseLegDistanceForBlankReverse(legId: string) {
-    const changedLeg = draft.legs.find((leg) => leg.id === legId)
-    if (!changedLeg) return
-    const fromName = stopsById.get(changedLeg.fromStopId)?.trim().toLocaleLowerCase()
-    const toName = stopsById.get(changedLeg.toStopId)?.trim().toLocaleLowerCase()
-
-    update({
-      ...draft,
-      legs: draft.legs.map((leg) => {
-        const isBlankReverse = leg.distanceKm === null
-          && stopsById.get(leg.fromStopId)?.trim().toLocaleLowerCase() === toName
-          && stopsById.get(leg.toStopId)?.trim().toLocaleLowerCase() === fromName
-        return isBlankReverse ? { ...leg, distanceKm: changedLeg.distanceKm, distanceSource: 'reused' } : leg
-      }),
-    })
-  }
-
-  function moveStop(index: number, direction: -1 | 1) {
-    const stops = [...draft.stops]
-    const target = index + direction
-    ;[stops[index], stops[target]] = [stops[target], stops[index]]
-    changeStops(stops)
-  }
-
-  function addPerson() {
-    const person: Person = { id: createId(), name: '', assignedLegIds: [] }
-    update({ ...draft, people: [...draft.people, person] })
-  }
-
-  function setLegAssignment(personId: string, legId: string, assigned: boolean) {
-    update({
-      ...draft,
-      people: draft.people.map((person) => person.id !== personId ? person : {
-        ...person,
-        assignedLegIds: assigned
-          ? [...new Set([...person.assignedLegIds, legId])]
-          : person.assignedLegIds.filter((id) => id !== legId),
-      }),
-    })
-  }
-
-  function setAllLegAssignments(legId: string, assigned: boolean) {
-    update({
-      ...draft,
-      people: draft.people.map((person) => ({
-        ...person,
-        assignedLegIds: assigned
-          ? [...new Set([...person.assignedLegIds, legId])]
-          : person.assignedLegIds.filter((id) => id !== legId),
-      })),
-    })
-  }
 
   function resetTrip() {
     if (window.confirm('Reset the complete trip? All stops, people, distances, and settings will be cleared.')) {
