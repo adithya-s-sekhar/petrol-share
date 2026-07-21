@@ -56,7 +56,7 @@ test('calculates and persists a fair split for a local trip', async ({ page }) =
   await expect(summary).toContainText('₹200.00')
 })
 
-test('checks incomplete details, focuses validation, and only resets after confirmation', async ({ page }) => {
+test('checks incomplete details, focuses validation, and only resets after in-app confirmation', async ({ page }) => {
   await expect(page.getByText('Once they are valid, the split updates automatically.')).toBeVisible()
   await page.getByRole('button', { name: 'Check trip details' }).click()
 
@@ -65,14 +65,43 @@ test('checks incomplete details, focuses validation, and only resets after confi
   await expect(page.getByRole('alert').filter({ hasText: 'At least one person is required' })).toBeVisible()
 
   await page.getByLabel('Stop 1 name').fill('Keep me')
-  page.once('dialog', (dialog) => dialog.dismiss())
   await page.getByRole('button', { name: 'Reset trip' }).click()
+  const dialog = page.getByRole('alertdialog', { name: 'Reset the complete trip?' })
+  await expect(dialog).toContainText('distances, assignments, and fuel settings')
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Escape')
   await expect(page.getByLabel('Stop 1 name')).toHaveValue('Keep me')
+  await expect(page.getByRole('button', { name: 'Reset trip' })).toBeFocused()
 
-  page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: 'Reset trip' }).click()
+  await dialog.getByRole('button', { name: 'Reset trip' }).click()
   await expect(page.getByLabel('Stop 1 name')).toHaveValue('')
   await expect(page.getByLabel('Stop 2 name')).toHaveValue('')
+  await expect(page.getByLabel('Stop 1 name')).toBeFocused()
+})
+
+test('undo restores removed stops, distances, riders, and assignments', async ({ page }) => {
+  await page.getByLabel('Stop 1 name').fill('A')
+  await page.getByLabel('Stop 2 name').fill('B')
+  await page.getByRole('button', { name: 'Add another stop' }).click()
+  await page.getByLabel('Stop 3 name').fill('C')
+  await page.getByLabel('Distance from A to B in kilometres').fill('12')
+  await page.getByLabel('Distance from B to C in kilometres').fill('23')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByLabel('Asha rode from B to C').check()
+
+  await page.getByRole('button', { name: 'Remove stop 2' }).click()
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(page.getByLabel('Stop 2 name')).toHaveValue('B')
+  await expect(page.getByLabel('Distance from A to B in kilometres')).toHaveValue('12')
+  await expect(page.getByLabel('Distance from B to C in kilometres')).toHaveValue('23')
+  await expect(page.getByLabel('Asha rode from B to C')).toBeChecked()
+
+  await page.getByRole('button', { name: 'Remove Asha' }).click()
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(page.getByLabel('Person 1 name')).toHaveValue('Asha')
+  await expect(page.getByLabel('Asha rode from B to C')).toBeChecked()
 })
 
 test('shows live results, explains the calculation, and updates after a valid edit', async ({ page }) => {

@@ -43,6 +43,7 @@ import { useTripEditor } from './app/useTripEditor'
 type ErrorMap = Record<string, string>
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 type EditorSection = 'route' | 'fuel' | 'people'
+type UndoRemoval = { draft: TripDraft; message: string }
 
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
@@ -53,10 +54,15 @@ const styles: Record<string, string> = {
   brand: 'flex min-h-11 items-center gap-2.5 text-[19px] tracking-[-.4px] text-[#18362d] no-underline',
   'brand-mark': 'grid size-9 place-items-center rounded-[11px] bg-[#14875d] text-white shadow-[0_5px_14px_rgba(20,135,93,.24)] [&_svg]:w-5',
   'header-actions': 'flex items-center gap-1',
-  'theme-button': 'grid size-11 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] active:bg-[#dfeae4] [&_svg]:size-[18px]',
-  'reset-button': 'inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#8f382f] hover:bg-[#fbecea] hover:text-[#7f2f27] active:bg-[#f5d8d4] max-[560px]:text-xs',
-  'persistence-status': 'mx-auto max-w-[1180px] px-6 pt-[.65rem] text-right text-[.85rem] text-[#5d6c62]',
-  'persistence-recovered': 'font-semibold !text-[#9a3412]', 'persistence-error': 'font-semibold !text-[#9a3412]',
+  'header-save-status': 'inline-flex min-w-[78px] items-center justify-end gap-1.5 px-2 text-xs font-bold text-[#5d6c62] max-[560px]:min-w-0 max-[560px]:px-1 [&_svg]:size-3.5',
+  'theme-button': 'grid size-11 shrink-0 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] active:bg-[#dfeae4] [&_svg]:size-[18px]',
+  'reset-button': 'inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#8f382f] hover:bg-[#fbecea] hover:text-[#7f2f27] active:bg-[#f5d8d4] max-[560px]:text-xs',
+  'recovery-notice': 'mx-auto mt-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-[#efc4bd] bg-[#fff0ee] px-4 py-3 text-sm font-semibold text-[#8f382f] [&_svg]:size-5 [&_svg]:shrink-0 [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#d99b92] [&_button]:bg-white [&_button]:px-3 [&_button]:font-extrabold',
+  'undo-toast': 'fixed bottom-5 left-1/2 z-30 flex w-[min(92vw,480px)] -translate-x-1/2 items-center gap-3 rounded-xl bg-[#173f34] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_36px_rgba(18,59,47,.3)] [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#80d6ac] [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#9be5c1]',
+  'dialog-backdrop': 'fixed inset-0 z-40 grid place-items-center bg-[#10251f]/55 p-5',
+  'reset-dialog': 'm-0 w-[min(100%,440px)] rounded-2xl border-0 bg-white p-6 text-[#152a25] shadow-[0_20px_60px_rgba(10,35,27,.35)] [&_h2]:mb-2 [&_h2]:text-xl [&_p]:leading-6 [&_p]:text-[#5d6c62]',
+  'dialog-actions': 'mt-6 flex justify-end gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:px-4 [&_button]:font-extrabold',
+  'dialog-cancel': 'border border-[#cad7d0] bg-white text-[#29483e]', 'dialog-confirm': 'border-0 bg-[#a13c31] text-white',
   hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
   'hero-compact': '!pb-7 !pt-8 max-[560px]:!pb-5 max-[560px]:!pt-6 [&_.eyebrow]:hidden [&_h1]:!text-[clamp(32px,4vw,46px)] [&_p]:hidden',
   eyebrow: 'inline-flex items-center gap-[7px] rounded-full border border-[#cce4d6] bg-[#eff9f3] px-3 py-[7px] text-[11px] font-extrabold uppercase tracking-[1.25px] text-[#167451]',
@@ -153,9 +159,13 @@ function App() {
   const [resultsVisible, setResultsVisible] = useState(false)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => defaultUnitSystem())
   const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(['route', 'fuel', 'people']))
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [undoRemoval, setUndoRemoval] = useState<UndoRemoval | null>(null)
   const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
-  const { draft, setDraft, hydrated, persistenceStatus } = usePersistedTrip(closeRestoredSections)
+  const { draft, setDraft, hydrated, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
   const resultsRef = useRef<HTMLElement>(null)
+  const resetButtonRef = useRef<HTMLButtonElement>(null)
+  const cancelResetRef = useRef<HTMLButtonElement>(null)
   const sectionButtonRefs = useRef<Partial<Record<EditorSection, HTMLButtonElement>>>({})
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
@@ -187,12 +197,45 @@ function App() {
     return () => observer.disconnect()
   }, [hasResult])
 
+  useEffect(() => {
+    if (!resetDialogOpen) return
+    cancelResetRef.current?.focus()
+  }, [resetDialogOpen])
+
+  useEffect(() => {
+    if (!undoRemoval) return
+    const timeout = window.setTimeout(() => setUndoRemoval(null), 8000)
+    return () => window.clearTimeout(timeout)
+  }, [undoRemoval])
+
+  function closeResetDialog() {
+    setResetDialogOpen(false)
+    requestAnimationFrame(() => resetButtonRef.current?.focus())
+  }
+
   function resetTrip() {
-    if (window.confirm('Reset the complete trip? All stops, people, distances, and settings will be cleared.')) {
-      setDraft(createBlankTripDraft())
-      setSubmitted(false)
-      setOpenSections(new Set(['route', 'fuel', 'people']))
-    }
+    setDraft(createBlankTripDraft())
+    setSubmitted(false)
+    setUndoRemoval(null)
+    setOpenSections(new Set(['route', 'fuel', 'people']))
+    setResetDialogOpen(false)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="Stop 1 name"]')?.focus())
+  }
+
+  function removeStop(stopId: string, index: number) {
+    setUndoRemoval({ draft, message: `Stop ${index + 1} removed.` })
+    changeStops(draft.stops.filter(({ id }) => id !== stopId))
+  }
+
+  function removePerson(personId: string, name: string, index: number) {
+    setUndoRemoval({ draft, message: `${name || `Person ${index + 1}`} removed.` })
+    update({ ...draft, people: draft.people.filter(({ id }) => id !== personId) })
+  }
+
+  function undoLastRemoval() {
+    if (!undoRemoval) return
+    setDraft({ ...undoRemoval.draft, updatedAt: new Date().toISOString() })
+    setUndoRemoval(null)
   }
 
   function revealResults() {
@@ -272,15 +315,16 @@ function App() {
       <header className={classes("site-header")}>
         <a className={classes("brand")} href="#top" aria-label="Petrol Share home"><span className={classes("brand-mark")}><Fuel /></span><span>Petrol <strong>Share</strong></span></a>
         <div className={classes("header-actions")}>
+          <span className={classes("header-save-status")} role="status" aria-live="polite">{persistenceStatus === 'saving' ? 'Saving…' : persistenceStatus === 'error' ? 'Not saved' : persistenceStatus === 'saved' ? 'Saved' : 'Autosave'}</span>
           <button className={classes("theme-button")} type="button" onClick={cycleTheme} aria-label={`Theme: ${themePreference}. Switch theme`} title={`Theme: ${themePreference}`}>
             {themePreference === 'system' ? <Monitor /> : themePreference === 'light' ? <Sun /> : <Moon />}
           </button>
-          <button className={classes("reset-button")} type="button" onClick={resetTrip}><RotateCcw size={17} /> Reset trip</button>
+          <button ref={resetButtonRef} className={classes("reset-button")} type="button" onClick={() => setResetDialogOpen(true)}><RotateCcw size={17} /> Reset trip</button>
         </div>
       </header>
 
       <main id="top">
-        <div className={classes(`persistence-status persistence-${persistenceStatus}`)} role="status" aria-live="polite">{persistenceMessage}</div>
+        {(persistenceStatus === 'error' || persistenceStatus === 'recovered') && <div className={classes("recovery-notice")} role="alert"><CircleAlert /> <span>{persistenceMessage}</span>{persistenceStatus === 'error' && <button type="button" onClick={retryAutosave}>Try saving again</button>}</div>}
         <section className={classes(`hero${hasProgress ? ' hero-compact' : ''}`)} aria-labelledby="page-title">
           <div className={classes("eyebrow")}><CarFront size={16} /> Fair fuel costs, leg by leg</div>
           <h1 id="page-title">Plan the route.<br /><span>Split the ride.</span></h1>
@@ -307,7 +351,7 @@ function App() {
                     <div className={classes("row-actions")}>
                       <IconButton label={`Move stop ${index + 1} up`} disabled={index === 0} onClick={() => moveStop(index, -1)}><ArrowUp /></IconButton>
                       <IconButton label={`Move stop ${index + 1} down`} disabled={index === draft.stops.length - 1} onClick={() => moveStop(index, 1)}><ArrowDown /></IconButton>
-                      <IconButton label={`Remove stop ${index + 1}`} destructive disabled={draft.stops.length <= 2} onClick={() => changeStops(draft.stops.filter(({ id }) => id !== stop.id))}><Trash2 /></IconButton>
+                      <IconButton label={`Remove stop ${index + 1}`} destructive disabled={draft.stops.length <= 2} onClick={() => removeStop(stop.id, index)}><Trash2 /></IconButton>
                     </div>
                   </li>
                 })}
@@ -352,7 +396,7 @@ function App() {
                 {draft.people.map((person, index) => {
                   const error = errors[`people.${index}.name`]
                   const errorId = `person-${person.id}-error`
-                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("row-label")} htmlFor={`person-${person.id}`}>Passenger {index + 1}</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} aria-label={`Person ${index + 1} name`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} destructive onClick={() => update({ ...draft, people: draft.people.filter(({ id }) => id !== person.id) })}><Trash2 /></IconButton></div>
+                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("row-label")} htmlFor={`person-${person.id}`}>Passenger {index + 1}</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} aria-label={`Person ${index + 1} name`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} destructive onClick={() => removePerson(person.id, person.name, index)}><Trash2 /></IconButton></div>
                 })}
               </div>
               <button className={classes("secondary-button full-button")} type="button" onClick={addPerson}><Plus size={18} /> Add person</button>
@@ -397,6 +441,8 @@ function App() {
           </aside>
         </div>
       </main>
+      {undoRemoval && <div className={classes("undo-toast")} role="status" aria-live="polite"><span>{undoRemoval.message}</span><button type="button" onClick={undoLastRemoval}>Undo</button></div>}
+      {resetDialogOpen && <div className={classes("dialog-backdrop")} onMouseDown={(event) => { if (event.target === event.currentTarget) closeResetDialog() }}><div className={classes("reset-dialog")} role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description" onKeyDown={(event) => { if (event.key === 'Escape') closeResetDialog() }}><h2 id="reset-dialog-title">Reset the complete trip?</h2><p id="reset-dialog-description">This deletes all stops, people, distances, assignments, and fuel settings from this device.</p><div className={classes("dialog-actions")}><button ref={cancelResetRef} className={classes("dialog-cancel")} type="button" onClick={closeResetDialog}>Cancel</button><button className={classes("dialog-confirm")} type="button" onClick={resetTrip}>Reset trip</button></div></div></div>}
       {result && !resultsVisible && <a className={classes("mobile-result-action")} href="#results">View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} /></a>}
       <footer>Made for fair journeys.</footer>
     </div>
