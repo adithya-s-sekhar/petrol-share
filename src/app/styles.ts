@@ -10,7 +10,8 @@ export const styles: Record<string, string> = {
   'theme-button': 'grid size-11 shrink-0 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] active:bg-[#dfeae4] [&_svg]:size-[18px]',
   'reset-button': 'inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] text-sm font-bold text-[#8f382f] hover:bg-[#fbecea] hover:text-[#7f2f27] active:bg-[#f5d8d4] max-[359px]:size-11 max-[359px]:gap-0 max-[359px]:p-0 max-[359px]:[&_span]:hidden',
   'recovery-notice': 'mx-auto mt-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-[#efc4bd] bg-[#fff0ee] px-4 py-3 text-sm font-semibold text-[#8f382f] [&_svg]:size-5 [&_svg]:shrink-0 [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#d99b92] [&_button]:bg-white [&_button]:px-3 [&_button]:font-extrabold',
-  'undo-toast': 'fixed bottom-5 left-1/2 z-30 flex w-[min(92vw,480px)] -translate-x-1/2 items-center gap-3 rounded-xl bg-[#173f34] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_36px_rgba(18,59,47,.3)] [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#80d6ac] [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#9be5c1]',
+  'floating-action-stack': 'pointer-events-none fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex w-full -translate-x-1/2 flex-col items-center gap-3 px-3 max-[560px]:bottom-[max(.75rem,env(safe-area-inset-bottom))]',
+  'undo-toast': 'pointer-events-auto flex w-[min(92vw,480px)] items-center gap-3 rounded-xl bg-[#173f34] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_36px_rgba(18,59,47,.3)] [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#80d6ac] [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#9be5c1]',
   'dialog-backdrop': 'fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-[#10251f]/55 p-5 max-[560px]:items-end max-[560px]:p-0',
   'reset-dialog': 'm-0 max-h-[calc(100dvh-2.5rem)] w-[min(100%,440px)] overflow-y-auto rounded-2xl border bg-white p-6 text-[#152a25] shadow-[0_24px_72px_rgba(0,0,0,.48),0_0_0_1px_rgba(255,255,255,.04)] max-[560px]:max-h-[calc(100dvh-1rem)] max-[560px]:rounded-b-none max-[560px]:p-5 [&_h2]:mb-2 [&_h2]:text-xl [&_p]:leading-6 [&_p]:text-[#5d6c62]',
   'dialog-actions': 'mt-6 flex justify-end gap-2 max-[420px]:grid max-[420px]:grid-cols-1 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:px-4 [&_button]:font-extrabold max-[420px]:[&_button]:w-full',
@@ -128,7 +129,7 @@ export const styles: Record<string, string> = {
   'share-status': 'mb-0 mt-2.5 text-center text-xs text-[#b8cbc4]',
   'share-error': '!text-[#ffe4a3]',
   'loading-screen': 'grid min-h-screen place-content-center justify-items-center gap-3 text-[#47604f] [&_svg]:size-8',
-  'mobile-result-action': 'fixed bottom-[max(.75rem,env(safe-area-inset-bottom))] left-1/2 z-20 hidden min-h-[52px] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#173f34] px-5 font-extrabold text-white no-underline shadow-[0_10px_30px_rgba(18,59,47,.3)] max-[560px]:flex',
+  'mobile-result-action': 'pointer-events-auto hidden min-h-[52px] max-w-[calc(100vw-1.5rem)] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#173f34] px-5 font-extrabold text-white no-underline shadow-[0_10px_30px_rgba(18,59,47,.3)] max-[560px]:flex',
 }
 
 export function classes(names: string): string {

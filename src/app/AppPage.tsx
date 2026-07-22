@@ -575,14 +575,21 @@ export function AppPage() {
           </aside>
         </div>
       </main>
-      {undoRemoval && (
-        <div className={classes('undo-toast')} role="status" aria-live="polite">
-          <span>{undoRemoval.message}</span>
-          <button type="button" onClick={undoLastRemoval}>
-            Undo
-          </button>
-        </div>
-      )}
+      <div className={classes('floating-action-stack')}>
+        {undoRemoval && (
+          <div className={classes('undo-toast')} role="status" aria-live="polite">
+            <span>{undoRemoval.message}</span>
+            <button type="button" onClick={undoLastRemoval}>
+              Undo
+            </button>
+          </div>
+        )}
+        {result && !resultsVisible && (
+          <a className={classes('mobile-result-action')} href="#results">
+            View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} />
+          </a>
+        )}
+      </div>
       {resetDialogOpen && (
         <div
           ref={resetDialogRef as React.RefObject<HTMLDivElement>}
@@ -832,11 +839,6 @@ export function AppPage() {
             </div>
           </div>
         </div>
-      )}
-      {result && !resultsVisible && (
-        <a className={classes('mobile-result-action')} href="#results">
-          View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} />
-        </a>
       )}
       <footer>Made for fair journeys.</footer>
     </div>

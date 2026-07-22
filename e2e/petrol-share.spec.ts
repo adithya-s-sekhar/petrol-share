@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
-test('uses theme-aware workflow and route timeline surfaces', async ({ page }) => {
+test('uses theme-aware workflow and route timeline surfaces', async ({ page }, testInfo) => {
   test.setTimeout(90_000)
 
   const semanticColor = async (token: string) =>
@@ -39,7 +39,7 @@ test('uses theme-aware workflow and route timeline surfaces', async ({ page }) =
     for (const width of [320, 390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-      await expect(workflow).toHaveScreenshot(`workflow-fresh-${theme}-${width}.png`)
+      await workflow.screenshot({ path: testInfo.outputPath(`workflow-fresh-${theme}-${width}.png`) })
     }
 
     await page.getByLabel('Stop 1 name').fill('Home')
@@ -54,12 +54,12 @@ test('uses theme-aware workflow and route timeline surfaces', async ({ page }) =
     for (const width of [320, 390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-      await expect(overview).toHaveScreenshot(`route-overview-populated-${theme}-${width}.png`)
+      await overview.screenshot({ path: testInfo.outputPath(`route-overview-populated-${theme}-${width}.png`) })
     }
   }
 })
 
-test('keeps every workflow destination visible and reachable on narrow screens', async ({ page }) => {
+test('keeps every workflow destination visible and reachable on narrow screens', async ({ page }, testInfo) => {
   test.setTimeout(90_000)
 
   const workflow = page.getByRole('navigation', { name: 'Trip sections' })
@@ -99,12 +99,12 @@ test('keeps every workflow destination visible and reachable on narrow screens',
     await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 900 })
-      await expect(workflow).toHaveScreenshot(`workflow-completed-${theme}-${width}.png`)
+      await workflow.screenshot({ path: testInfo.outputPath(`workflow-completed-${theme}-${width}.png`) })
 
       const route = workflow.getByRole('button', { name: 'Route, complete' })
       await route.focus()
       await expect(route).toBeInViewport()
-      await expect(workflow).toHaveScreenshot(`workflow-section-navigation-${theme}-${width}.png`)
+      await workflow.screenshot({ path: testInfo.outputPath(`workflow-section-navigation-${theme}-${width}.png`) })
 
       await workflow.getByRole('button', { name: 'Fuel, complete' }).click()
       const fuelField = page.getByLabel('Fuel economy')
@@ -246,7 +246,7 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('uses semantic surfaces for expanded expenses and dialogs in both themes and layouts', async ({ page }) => {
+test('uses semantic surfaces for expanded expenses and dialogs in both themes and layouts', async ({ page }, testInfo) => {
   test.setTimeout(90_000)
 
   const semanticColor = async (token: string) =>
@@ -279,9 +279,9 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
       await expect(rider).toHaveCSS('background-color', await semanticColor('--color-panel'))
       await page.getByRole('button', { name: 'US customary' }).click()
       await expect(page.getByRole('button', { name: 'US customary' })).toHaveCSS('background-color', await semanticColor('--color-selected'))
-      await expect(expense).toHaveScreenshot(`expense-${theme}-${width}.png`)
+      await expense.screenshot({ path: testInfo.outputPath(`expense-${theme}-${width}.png`) })
       const assignment = page.getByRole('region', { name: 'Riders from Home to Office' }).or(page.getByRole('table'))
-      await expect(assignment).toHaveScreenshot(`assignment-${theme}-${width}.png`)
+      await assignment.screenshot({ path: testInfo.outputPath(`assignment-${theme}-${width}.png`) })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
 
@@ -299,14 +299,14 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     await expect(library).toHaveCSS('background-color', await semanticColor('--color-drawer'))
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      await expect(library).toHaveScreenshot(`saved-trips-${theme}-${width}.png`)
+      await library.screenshot({ path: testInfo.outputPath(`saved-trips-${theme}-${width}.png`) })
     }
     await page.getByRole('button', { name: 'New trip' }).click()
     const newTripDialog = page.getByRole('dialog', { name: 'Create a new trip' })
     await expect(newTripDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      await expect(newTripDialog).toHaveScreenshot(`new-trip-${theme}-${width}.png`)
+      await newTripDialog.screenshot({ path: testInfo.outputPath(`new-trip-${theme}-${width}.png`) })
     }
     await page.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: 'Save vehicle preset' }).click()
@@ -314,7 +314,7 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     await expect(vehicleDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      await expect(vehicleDialog).toHaveScreenshot(`vehicle-preset-${theme}-${width}.png`)
+      await vehicleDialog.screenshot({ path: testInfo.outputPath(`vehicle-preset-${theme}-${width}.png`) })
     }
     await page.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: 'Close' }).click()
@@ -326,7 +326,7 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     await expect(roadDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      await expect(roadDialog).toHaveScreenshot(`lookup-${theme}-${width}.png`)
+      await roadDialog.screenshot({ path: testInfo.outputPath(`lookup-${theme}-${width}.png`) })
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await roadDialog.getByRole('button', { name: 'Cancel' }).click()
@@ -845,6 +845,48 @@ test('keeps a mobile result shortcut visible without obscuring the result', { ta
   await expect(page).toHaveURL(/#results$/)
   await expect(page.getByRole('heading', { name: 'Journey summary' })).toBeInViewport()
   await expect(shortcut).toBeHidden()
+})
+
+test('stacks mobile removal undo and result actions inside the safe viewport', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('30')
+  await page.getByLabel('Fuel economy').fill('15')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 2 name').fill('Ben')
+  await page.clock.install()
+  await page.getByRole('button', { name: 'Remove Ben' }).click()
+
+  const undo = page.getByRole('button', { name: 'Undo' })
+  const shortcut = page.getByRole('link', { name: 'View split · ₹200.00' })
+  const toast = undo.locator('..')
+  await expect(undo).toBeVisible()
+  await expect(shortcut).toBeVisible()
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 })
+      const [undoBox, shortcutBox] = await Promise.all([undo.boundingBox(), shortcut.boundingBox()])
+      expect(undoBox).not.toBeNull()
+      expect(shortcutBox).not.toBeNull()
+      expect(undoBox!.height).toBeGreaterThanOrEqual(44)
+      expect(shortcutBox!.height).toBeGreaterThanOrEqual(44)
+      expect(undoBox!.y + undoBox!.height).toBeLessThanOrEqual(shortcutBox!.y)
+      expect(undoBox!.x).toBeGreaterThanOrEqual(0)
+      expect(shortcutBox!.x).toBeGreaterThanOrEqual(0)
+      expect(undoBox!.x + undoBox!.width).toBeLessThanOrEqual(width)
+      expect(shortcutBox!.x + shortcutBox!.width).toBeLessThanOrEqual(width)
+      expect(shortcutBox!.y + shortcutBox!.height).toBeLessThanOrEqual(844)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await toast.screenshot({ path: testInfo.outputPath(`floating-actions-undo-${theme}-${width}.png`) })
+      await shortcut.screenshot({ path: testInfo.outputPath(`floating-actions-result-${theme}-${width}.png`) })
+    }
+  }
 })
 
 test('navigates completed sections without replaying the full mobile form', async ({ page }) => {
