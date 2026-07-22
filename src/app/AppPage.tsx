@@ -400,7 +400,11 @@ export function AppPage() {
       return next
     })
     const firstFieldId = section === 'route' ? `stop-${draft.stops[0].id}` : section === 'fuel' ? 'economy' : `person-${draft.people[0]?.id}`
-    requestAnimationFrame(() => (document.getElementById(firstFieldId) ?? sectionButtonRefs.current[section])?.focus())
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const target = document.getElementById(firstFieldId) ?? sectionButtonRefs.current[section]
+      target?.focus({ preventScroll: true })
+      target?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })
+    }))
   }
 
   function closeSection(section: EditorSection, nextSection?: EditorSection) {
