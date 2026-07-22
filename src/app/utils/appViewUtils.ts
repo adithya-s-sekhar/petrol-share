@@ -2,12 +2,22 @@ import type { TripDraft } from '../../domain'
 
 export type EditorSection = 'route' | 'fuel' | 'people'
 
+export function hasTripProgress(draft: TripDraft) {
+  return draft.stops.some((stop) => stop.name.trim())
+    || draft.people.length > 0
+    || draft.legs.some((leg) => leg.distanceKm !== null)
+    || draft.fuelSettings.fuelEconomyKmpl !== null
+    || draft.fuelSettings.fuelPricePerLitre !== null
+    || Boolean(draft.fuelSettings.fuelType?.trim())
+    || (draft.expenses?.length ?? 0) > 0
+}
+
 export function tripProgress(draft: TripDraft) {
   return {
     routeComplete: draft.stops.every((stop) => stop.name.trim()) && draft.legs.every((leg) => leg.distanceKm !== null && leg.distanceKm > 0),
     fuelComplete: (draft.fuelSettings.fuelEconomyKmpl ?? 0) > 0 && (draft.fuelSettings.fuelPricePerLitre ?? 0) > 0 && draft.fuelSettings.currency.length === 3,
     peopleComplete: draft.people.length > 0 && draft.people.every((person) => person.name.trim()),
-    hasProgress: draft.stops.some((stop) => stop.name.trim()) || draft.people.length > 0 || draft.legs.some((leg) => leg.distanceKm !== null) || (draft.expenses?.length ?? 0) > 0,
+    hasProgress: hasTripProgress(draft),
   }
 }
 

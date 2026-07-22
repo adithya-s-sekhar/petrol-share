@@ -35,7 +35,7 @@ export const styles: Record<string, string> = {
   'template-label': 'mb-2 inline-flex rounded-full bg-[#e9efff] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#3c5790]',
   'dialog-input': 'mt-4 grid gap-2 [&_label]:text-sm [&_label]:font-bold [&_input]:min-h-11',
   hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
-  'hero-compact': '!pb-7 !pt-8 max-[560px]:!pb-5 max-[560px]:!pt-6 [&_.eyebrow]:hidden [&_h1]:!text-[clamp(32px,4vw,46px)] [&_p]:hidden',
+  'hero-compact': '!pb-5 !pt-5 [&_.eyebrow]:hidden [&_br]:hidden [&_h1]:!m-0 [&_h1]:!text-[clamp(28px,3.2vw,38px)] [&_h1]:!leading-none [&_p]:hidden max-[560px]:!pb-4 max-[560px]:!pt-4 max-[560px]:[&_br]:block',
   eyebrow: 'inline-flex items-center gap-[7px] rounded-full border border-[#cce4d6] bg-[#eff9f3] px-3 py-[7px] text-[11px] font-extrabold uppercase tracking-[1.25px] text-[#167451]',
   'editor-grid': 'grid w-full min-w-0 grid-cols-[minmax(0,1.12fr)_minmax(360px,.88fr)] items-start gap-6 max-[880px]:grid-cols-1',
   'editor-column': 'grid min-w-0 gap-6',
