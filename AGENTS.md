@@ -20,5 +20,5 @@
 - Tailwind for styling, no duplicated code.
 - DRY and SOLID principles.
 - Best practices for react state management and performance must be followed.
-- Styling should be verified in both dark and light modes with playwright.
-- Styling should be verified in both desktop and mobile layouts with playwright.
+- Styling should be verified in both dark and light modes with playwright using screenshots.
+- Styling should be verified in both desktop and mobile layouts with playwright using screenshots.
