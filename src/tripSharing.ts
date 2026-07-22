@@ -24,6 +24,7 @@ const portableTripSchema = z.object({
       fuelEconomyKmpl: z.number().finite().positive().nullable(),
       fuelPricePerLitre: z.number().finite().positive().nullable(),
       currency: z.string().regex(/^[A-Z]{3}$/),
+      fuelType: z.string().max(100).optional(),
     }).strict(),
   }).strict(),
 }).strict().superRefine((payload, context) => {

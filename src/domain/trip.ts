@@ -25,6 +25,7 @@ export interface FuelSettings {
   fuelEconomyKmpl: number | null
   fuelPricePerLitre: number | null
   currency: string
+  fuelType?: string
 }
 
 export interface TripDraft {
@@ -91,6 +92,7 @@ export function createBlankTripDraft(options: DraftFactoryOptions = {}): TripDra
       fuelEconomyKmpl: null,
       fuelPricePerLitre: null,
       currency: 'INR',
+      fuelType: '',
     },
     updatedAt: now().toISOString(),
   }

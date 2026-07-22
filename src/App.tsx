@@ -45,6 +45,7 @@ import { usePersistedTrip } from './app/usePersistedTrip'
 import { useThemePreference } from './app/useThemePreference'
 import { useTripEditor } from './app/useTripEditor'
 import { saveStoredTrip, type StoredTrip } from './persistence/tripStorage'
+import { loadVehiclePresets, saveVehiclePresets, type VehiclePreset } from './persistence/vehiclePresetStorage'
 import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip, type EditableTripImport } from './tripSharing'
 
 type ErrorMap = Record<string, string>
@@ -53,6 +54,7 @@ type EditorSection = 'route' | 'fuel' | 'people'
 type UndoRemoval = { draft: TripDraft; message: string }
 type TripDialog = { action: 'create' | 'rename' | 'delete'; trip?: StoredTrip } | null
 type ImportPreview = EditableTripImport & { source: 'link' | 'file' }
+type VehicleDialog = { action: 'create' | 'edit' | 'delete'; preset?: VehiclePreset } | null
 
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
@@ -76,6 +78,9 @@ const styles: Record<string, string> = {
   'library': 'mx-auto mb-7 w-[min(100%-40px,1132px)] rounded-2xl border border-[#d7e3dc] bg-white p-5 shadow-[0_10px_32px_rgba(36,67,56,.08)] max-[560px]:w-[calc(100%-20px)] max-[560px]:p-4',
   'library-heading': 'mb-4 flex items-center justify-between gap-3 [&_h2]:m-0 [&_h2]:text-xl [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-sm [&_p]:text-[#6b7974]',
   'library-actions': 'flex flex-wrap gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#bcd5c8] [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#176c4d]',
+  'preset-list': 'mt-3 grid gap-2',
+  'preset-row': 'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dfe6e1] p-3 [&_p]:m-0 [&_p]:text-xs [&_p]:text-[#697772]',
+  'preset-actions': 'flex flex-wrap gap-1 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-bold [&_button]:text-[#176c4d] [&_button:last-child]:text-[#963b32]',
   'import-error': 'mt-3 rounded-lg border border-[#efc4bd] bg-[#fff0ee] px-3 py-2 text-sm font-semibold text-[#8f382f]',
   'import-preview': 'mt-4 rounded-xl bg-[#f3f7f4] p-4 [&_dl]:m-0 [&_dl]:grid [&_dl]:grid-cols-[auto_1fr] [&_dl]:gap-x-4 [&_dl]:gap-y-2 [&_dt]:font-bold [&_dd]:m-0 [&_dd]:break-words',
   'trip-list': 'mt-4 grid gap-3',
@@ -111,7 +116,7 @@ const styles: Record<string, string> = {
   'distance-source': 'mt-[5px] inline-block rounded-full px-[7px] py-0.5 text-[10px] font-extrabold tracking-[.2px]', 'distance-source-reused': 'bg-[#dff2e8] text-[#176c4d]', 'distance-source-manual': 'bg-[#e7ebe9] text-[#596762]',
   'field-error': 'mt-[5px] flex items-center gap-1 text-[11px] text-[#b53b31] [&_svg]:shrink-0',
   'unit-picker': 'mb-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f3f7f4] p-1.5 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2 [&_button]:text-xs [&_button]:font-bold [&_button[aria-pressed=true]]:bg-white [&_button[aria-pressed=true]]:text-[#147a56] [&_button[aria-pressed=true]]:shadow-sm',
-  'fuel-fields': 'grid grid-cols-[1fr_1fr_minmax(170px,1fr)] gap-3 max-[700px]:grid-cols-2', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': 'max-[700px]:col-span-full',
+  'fuel-fields': 'grid grid-cols-2 gap-3 max-[560px]:grid-cols-1', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': '',
   'assignment-panel': 'max-[880px]:order-none', 'assignment-scroll': '-mx-2 -mb-[5px] max-w-[calc(100%+1rem)] overflow-x-auto px-2 pb-[5px] max-[560px]:hidden',
   'assignment-cards': 'hidden gap-3 max-[560px]:grid', 'assignment-card': 'min-w-0 rounded-xl border border-[#dfe6e1] bg-[#f8faf8] p-3.5',
   'assignment-card-heading': 'mb-3 flex min-w-0 items-start justify-between gap-3 border-b border-[#e1e8e4] pb-3', 'assignment-route': 'min-w-0 text-sm font-extrabold leading-5 [&_span]:block [&_span]:break-words [&_svg]:my-1 [&_svg]:size-4 [&_svg]:text-[#82918b]',
@@ -205,6 +210,13 @@ function App() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [tripDialog, setTripDialog] = useState<TripDialog>(null)
+  const [vehicleDialog, setVehicleDialog] = useState<VehicleDialog>(null)
+  const [vehiclePresets, setVehiclePresets] = useState<VehiclePreset[]>(loadVehiclePresets)
+  const [vehicleName, setVehicleName] = useState('')
+  const [vehicleEconomy, setVehicleEconomy] = useState('')
+  const [vehicleFuelType, setVehicleFuelType] = useState('')
+  const [vehicleUnits, setVehicleUnits] = useState<UnitSystem>('metric')
+  const [newTripTemplateId, setNewTripTemplateId] = useState('')
   const [tripName, setTripName] = useState('')
   const [libraryMessage, setLibraryMessage] = useState('')
   const [importError, setImportError] = useState('')
@@ -223,7 +235,7 @@ function App() {
   const units = unitLabels(unitSystem)
   const currencies = useMemo(() => currencyOptions(), [])
   const hasResult = result !== null
-  const { stopsById, update, changeStops, addStop, returnToStop, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments } = useTripEditor(draft, setDraft)
+  const { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments } = useTripEditor(draft, setDraft)
   const calculationLegs = result ? draft.legs.map((leg) => {
     const riders = draft.people.filter((person) => person.assignedLegIds.includes(leg.id))
     const cost = (leg.distanceKm ?? 0) / draft.fuelSettings.fuelEconomyKmpl! * draft.fuelSettings.fuelPricePerLitre!
@@ -289,6 +301,48 @@ function App() {
   function showTripDialog(action: NonNullable<TripDialog>['action'], trip?: StoredTrip) {
     setTripName(action === 'rename' ? trip?.name ?? '' : action === 'create' ? 'Untitled trip' : '')
     setTripDialog({ action, trip })
+    if (action === 'create') setNewTripTemplateId('')
+  }
+
+  function showVehicleDialog(action: NonNullable<VehicleDialog>['action'], preset?: VehiclePreset) {
+    setVehicleName(preset?.name ?? '')
+    setVehicleEconomy(preset ? String(economyFromKmpl(preset.fuelEconomyKmpl, preset.preferredUnits)) : '')
+    setVehicleFuelType(preset?.fuelType ?? '')
+    setVehicleUnits(preset?.preferredUnits ?? unitSystem)
+    setVehicleDialog({ action, preset })
+  }
+
+  function storeVehiclePresets(next: VehiclePreset[]) {
+    saveVehiclePresets(next)
+    setVehiclePresets(next)
+  }
+
+  function submitVehicleDialog() {
+    if (!vehicleDialog) return
+    if (vehicleDialog.action === 'delete' && vehicleDialog.preset) {
+      storeVehiclePresets(vehiclePresets.filter(({ id }) => id !== vehicleDialog.preset!.id))
+      setLibraryMessage(`${vehicleDialog.preset.name} deleted.`)
+    } else {
+      const economy = Number(vehicleEconomy)
+      if (!vehicleName.trim() || !Number.isFinite(economy) || economy <= 0) return
+      const preset: VehiclePreset = {
+        id: vehicleDialog.preset?.id ?? recordId(),
+        name: vehicleName.trim(),
+        fuelEconomyKmpl: economyToKmpl(economy, vehicleUnits),
+        preferredUnits: vehicleUnits,
+        ...(vehicleFuelType.trim() ? { fuelType: vehicleFuelType.trim() } : {}),
+      }
+      storeVehiclePresets([preset, ...vehiclePresets.filter(({ id }) => id !== preset.id)])
+      setLibraryMessage(`${preset.name} ${vehicleDialog.action === 'create' ? 'saved' : 'updated'}.`)
+    }
+    setVehicleDialog(null)
+  }
+
+  function applyVehiclePreset(preset: VehiclePreset) {
+    update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelEconomyKmpl: preset.fuelEconomyKmpl, fuelType: preset.fuelType ?? '' } })
+    setUnitSystem(preset.preferredUnits)
+    setOpenSections((sections) => new Set(sections).add('fuel'))
+    setLibraryMessage(`${preset.name} applied. Review or edit the auto-filled fuel details below.`)
   }
 
   async function createTripFromDraft(name: string, source: TripDraft, template = false) {
@@ -302,7 +356,8 @@ function App() {
   async function submitTripDialog() {
     if (!tripDialog) return
     if (tripDialog.action === 'create') {
-      await createTripFromDraft(tripName.trim() || 'Untitled trip', createBlankTripDraft())
+      const template = trips.find(({ id, kind, deletedAt }) => id === newTripTemplateId && kind === 'template' && !deletedAt)
+      await createTripFromDraft(tripName.trim() || 'Untitled trip', template?.draft ?? createBlankTripDraft(), Boolean(template))
     } else if (tripDialog.action === 'rename' && tripDialog.trip) {
       const changed = { ...tripDialog.trip, name: tripName.trim() || 'Untitled trip', updatedAt: new Date().toISOString() }
       await saveStoredTrip(changed)
@@ -514,6 +569,9 @@ function App() {
           <div className={classes("library-actions")}><button type="button" onClick={() => showTripDialog('create')}><Plus size={17} /> New trip</button><button type="button" onClick={() => void copyEditableLink()}><Copy size={17} /> Copy editable link</button><button type="button" onClick={downloadEditableTrip}><Download size={17} /> Download trip file</button><label className={classes("trips-button")}><Upload size={17} /> Import trip file<input className={classes("sr-only")} type="file" accept="application/json,.json" onChange={(event) => void chooseImportFile(event)} /></label></div>
           {importError && <p className={classes("import-error")} role="alert">{importError}</p>}
           {libraryMessage && <p role="status">{libraryMessage}</p>}
+          <div className={classes("subsection")}><h3>Vehicle presets</h3><div className={classes("library-actions")}><button type="button" onClick={() => showVehicleDialog('create')}><Plus size={17} /> Save vehicle preset</button></div>
+            {vehiclePresets.length === 0 ? <p>No vehicle presets saved yet.</p> : <div className={classes("preset-list")}>{vehiclePresets.map((preset) => <article className={classes("preset-row")} key={preset.id} aria-label={preset.name}><div><strong>{preset.name}</strong><p>{displayNumber(preset.fuelEconomyKmpl, (value) => economyFromKmpl(value, preset.preferredUnits))} {unitLabels(preset.preferredUnits).economy}{preset.fuelType ? ` · ${preset.fuelType}` : ''} · {preset.preferredUnits === 'metric' ? 'Metric' : preset.preferredUnits === 'us' ? 'US customary' : 'UK imperial'}</p></div><div className={classes("preset-actions")}><button type="button" onClick={() => applyVehiclePreset(preset)}>Use</button><button type="button" onClick={() => showVehicleDialog('edit', preset)}>Edit</button><button type="button" onClick={() => showVehicleDialog('delete', preset)}>Delete</button></div></article>)}</div>}
+          </div>
           <div className={classes("trip-list")}>
             {trips.filter(({ deletedAt }) => !deletedAt).map((trip) => {
               const complete = editableTripDraftSchema.safeParse(trip.draft)
@@ -558,6 +616,7 @@ function App() {
                 })}
               </ol>
               <button className={classes("secondary-button full-button")} type="button" onClick={addStop}><Plus size={18} /> Add another stop</button>
+              {draft.stops.length > 1 && draft.stops.every(({ name }) => name.trim()) && draft.stops[0].name.trim().toLocaleLowerCase() !== draft.stops.at(-1)?.name.trim().toLocaleLowerCase() && <button className={classes("secondary-button full-button")} type="button" onClick={makeRoundTrip}><RotateCcw size={18} /> Make round trip</button>}
               {returnStops.length > 0 && <div className={classes("return-stops")} aria-label="Return to an earlier stop"><span>Going back?</span><div>{returnStops.map((stop) => <button key={stop.id} className={classes("return-stop-button")} type="button" onClick={() => returnToStop(stop)}><RotateCcw size={15} /> Return to {stop.name.trim()}</button>)}</div><p>The known distance is reused when available, and can still be changed.</p></div>}
 
               <div className={classes("subsection")}>
@@ -585,6 +644,7 @@ function App() {
                 <div className={classes("form-field")}><label htmlFor="economy">Fuel economy ({units.economy})</label><div className={classes("unit-input")}><input id="economy" aria-label="Fuel economy" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 15" value={displayNumber(draft.fuelSettings.fuelEconomyKmpl, (value) => economyFromKmpl(value, unitSystem))} aria-invalid={Boolean(errors['fuelSettings.fuelEconomyKmpl'])} aria-describedby="economy-error" onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelEconomyKmpl: value === null ? null : economyToKmpl(value, unitSystem) } }) }} /><span>{units.economy}</span></div><FieldError id="economy-error" message={errors['fuelSettings.fuelEconomyKmpl']} /></div>
                 <div className={classes("form-field")}><label htmlFor="fuel-price">Price per {units.priceVolume}</label><input id="fuel-price" aria-label={unitSystem === 'metric' ? 'Price per litre' : `Price per ${units.priceVolume}`} type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 105" value={displayNumber(draft.fuelSettings.fuelPricePerLitre, (value) => priceFromPerLitre(value, unitSystem))} aria-invalid={Boolean(errors['fuelSettings.fuelPricePerLitre'])} aria-describedby="price-error" onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelPricePerLitre: value === null ? null : priceToPerLitre(value, unitSystem) } }) }} /><FieldError id="price-error" message={errors['fuelSettings.fuelPricePerLitre']} /></div>
                 <div className={classes("form-field currency-field")}><label htmlFor="currency">Currency</label><input id="currency" list="currency-options" role="combobox" autoComplete="off" value={draft.fuelSettings.currency} aria-invalid={Boolean(errors['fuelSettings.currency'])} aria-describedby="currency-help currency-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, currency: event.target.value.toUpperCase() } })} /><datalist id="currency-options">{currencies.map(({ code, symbol, name }) => <option key={code} value={code}>{symbol} · {code} · {name}</option>)}</datalist><small id="currency-help">Search by symbol, code, or currency name.</small><FieldError id="currency-error" message={errors['fuelSettings.currency']} /></div>
+                <div className={classes("form-field")}><label htmlFor="fuel-type">Fuel type (optional)</label><input id="fuel-type" value={draft.fuelSettings.fuelType ?? ''} placeholder="e.g. Petrol" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelType: event.target.value } })} /></div>
               </div>
               {fuelComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('fuel', 'people')}>Done with fuel details <ArrowRight size={18} /></button>}
               </>}
@@ -644,7 +704,8 @@ function App() {
       </main>
       {undoRemoval && <div className={classes("undo-toast")} role="status" aria-live="polite"><span>{undoRemoval.message}</span><button type="button" onClick={undoLastRemoval}>Undo</button></div>}
       {resetDialogOpen && <div className={classes("dialog-backdrop")} onMouseDown={(event) => { if (event.target === event.currentTarget) closeResetDialog() }}><div className={classes("reset-dialog")} role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description" onKeyDown={(event) => { if (event.key === 'Escape') closeResetDialog() }}><h2 id="reset-dialog-title">Reset the complete trip?</h2><p id="reset-dialog-description">This deletes all stops, people, distances, assignments, and fuel settings from this device.</p><div className={classes("dialog-actions")}><button ref={cancelResetRef} className={classes("dialog-cancel")} type="button" onClick={closeResetDialog}>Cancel</button><button className={classes("dialog-confirm")} type="button" onClick={resetTrip}>Reset trip</button></div></div></div>}
-      {tripDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="trip-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape') setTripDialog(null) }}><h2 id="trip-dialog-title">{tripDialog.action === 'create' ? 'Create a new trip' : tripDialog.action === 'rename' ? `Rename ${tripDialog.trip?.name}` : `Delete ${tripDialog.trip?.name}?`}</h2>{tripDialog.action === 'delete' ? <p>The trip will move to Recently deleted, where you can restore it later.</p> : <div className={classes("dialog-input")}><label htmlFor="trip-name">Trip name</label><input id="trip-name" autoFocus value={tripName} onChange={(event) => setTripName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void submitTripDialog() }} /></div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setTripDialog(null)}>Cancel</button><button className={classes(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>{tripDialog.action === 'create' ? 'Create trip' : tripDialog.action === 'rename' ? 'Save name' : 'Move to Recently deleted'}</button></div></div></div>}
+      {tripDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="trip-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape') setTripDialog(null) }}><h2 id="trip-dialog-title">{tripDialog.action === 'create' ? 'Create a new trip' : tripDialog.action === 'rename' ? `Rename ${tripDialog.trip?.name}` : `Delete ${tripDialog.trip?.name}?`}</h2>{tripDialog.action === 'delete' ? <p>The trip will move to Recently deleted, where you can restore it later.</p> : <div className={classes("dialog-input")}><label htmlFor="trip-name">Trip name</label><input id="trip-name" autoFocus value={tripName} onChange={(event) => setTripName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void submitTripDialog() }} />{tripDialog.action === 'create' && <><label htmlFor="route-template">Frequently used route (optional)</label><select id="route-template" value={newTripTemplateId} onChange={(event) => setNewTripTemplateId(event.target.value)}><option value="">Start with a blank route</option>{trips.filter(({ kind, deletedAt }) => kind === 'template' && !deletedAt).map((template) => <option key={template.id} value={template.id}>{template.name} · {routeSummary(template.draft)}</option>)}</select><small>The selected route is copied into a new trip; your current trip stays unchanged.</small></>}</div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setTripDialog(null)}>Cancel</button><button className={classes(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>{tripDialog.action === 'create' ? 'Create trip' : tripDialog.action === 'rename' ? 'Save name' : 'Move to Recently deleted'}</button></div></div></div>}
+      {vehicleDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title"><h2 id="vehicle-dialog-title">{vehicleDialog.action === 'create' ? 'Save vehicle preset' : vehicleDialog.action === 'edit' ? `Edit ${vehicleDialog.preset?.name}` : `Delete ${vehicleDialog.preset?.name}?`}</h2>{vehicleDialog.action === 'delete' ? <p>This removes the local preset. Existing trips are not changed.</p> : <div className={classes("dialog-input")}><label htmlFor="vehicle-name">Preset name</label><input id="vehicle-name" autoFocus value={vehicleName} onChange={(event) => setVehicleName(event.target.value)} /><label htmlFor="vehicle-units">Preferred units</label><select id="vehicle-units" value={vehicleUnits} onChange={(event) => { const next = event.target.value as UnitSystem; const current = Number(vehicleEconomy); setVehicleEconomy(Number.isFinite(current) && current > 0 ? String(economyFromKmpl(economyToKmpl(current, vehicleUnits), next)) : ''); setVehicleUnits(next) }}><option value="metric">Metric</option><option value="us">US customary</option><option value="imperial">UK imperial</option></select><label htmlFor="vehicle-economy">Fuel economy ({unitLabels(vehicleUnits).economy})</label><input id="vehicle-economy" type="number" min="0" step="any" value={vehicleEconomy} onChange={(event) => setVehicleEconomy(event.target.value)} /><label htmlFor="vehicle-fuel-type">Fuel type (optional)</label><input id="vehicle-fuel-type" value={vehicleFuelType} placeholder="e.g. Petrol" onChange={(event) => setVehicleFuelType(event.target.value)} /></div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setVehicleDialog(null)}>Cancel</button><button className={classes(vehicleDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={submitVehicleDialog}>{vehicleDialog.action === 'delete' ? 'Delete preset' : 'Save preset'}</button></div></div></div>}
       {importPreview && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="import-dialog-title"><h2 id="import-dialog-title">Preview imported trip</h2><p>Review this trip before saving it on this device. Nothing local has changed yet.</p><div className={classes("import-preview")}><dl><dt>Name</dt><dd>{importPreview.name}</dd><dt>Route</dt><dd>{routeSummary(importPreview.draft)}</dd><dt>Stops</dt><dd>{importPreview.draft.stops.length}</dd><dt>Riders</dt><dd>{importPreview.draft.people.length}</dd><dt>Units</dt><dd>{importPreview.unitSystem === 'metric' ? 'Metric' : importPreview.unitSystem === 'us' ? 'US customary' : 'UK imperial'}</dd></dl></div><div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setImportPreview(null)}>Cancel</button><button className={classes("dialog-cancel")} type="button" onClick={() => void confirmImport('add')}>Add as new trip</button><button className={classes("dialog-confirm")} type="button" onClick={() => void confirmImport('replace')}>Replace current trip</button></div></div></div>}
       {result && !resultsVisible && <a className={classes("mobile-result-action")} href="#results">View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} /></a>}
       <footer>Made for fair journeys.</footer>
