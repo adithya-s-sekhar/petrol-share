@@ -76,7 +76,9 @@ export function AppPage() {
   const resetDialogRef = useModalFocus(resetDialogOpen, closeResetDialog)
   const tripDialogRef = useModalFocus(Boolean(tripDialog), () => setTripDialog(null))
   const vehicleDialogRef = useModalFocus(Boolean(vehicleDialog), () => setVehicleDialog(null))
-  const mapDialogRef = useModalFocus(Boolean(mapDialog) && mapStatus === 'idle', () => setMapDialog(null))
+  const mapDialogRef = useModalFocus(Boolean(mapDialog), () => {
+    if (mapStatus === 'idle') setMapDialog(null)
+  })
   const importDialogRef = useModalFocus(Boolean(importPreview), () => setImportPreview(null))
 
   useEffect(() => {

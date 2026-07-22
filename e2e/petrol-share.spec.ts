@@ -137,6 +137,7 @@ test('keeps header actions separate at the narrowest supported viewport', { tag:
 test('looks up an optional road distance and keeps it editable', { tag: '@cross-browser' }, async ({ page }) => {
   await page.route('https://nominatim.openstreetmap.org/search**', async (route) => {
     const query = new URL(route.request().url()).searchParams.get('q')
+    await new Promise((resolve) => setTimeout(resolve, 200))
     await route.fulfill({
       json: [
         {
@@ -157,6 +158,10 @@ test('looks up an optional road distance and keeps it editable', { tag: '@cross-
   const dialog = page.getByRole('dialog', { name: 'Look up road distance' })
   await expect(dialog).toContainText('No request is made until you select an action')
   await dialog.getByRole('button', { name: 'Find places' }).click()
+  await expect(dialog.getByRole('button', { name: 'Searching…' })).toBeDisabled()
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('radiogroup', { name: 'Origin suggestions' })).toContainText('Home, Kerala')
   await dialog.getByRole('button', { name: 'Use road distance' }).click()
   await expect(page.getByLabel('Distance from Home, Kerala to Office, Kerala in kilometres')).toHaveValue('42.5')
