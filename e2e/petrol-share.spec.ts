@@ -44,8 +44,8 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
   const scopeOptions = page.getByLabel('Parking at the railway station applies to').getByRole('radio')
   for (const radio of await scopeOptions.all()) {
     const box = await radio.boundingBox()
-    expect(box?.width).toBe(18)
-    expect(box?.height).toBe(18)
+    expect(box?.width).toBe(21)
+    expect(box?.height).toBe(21)
   }
   const riderChoice = page.locator('label').filter({ has: page.getByLabel('Asha shares Parking at the railway station') })
   await expect(riderChoice).toBeVisible()
@@ -165,8 +165,8 @@ test('contains long road-distance suggestions on desktop and mobile', { tag: '@c
     const choices = dialog.getByRole('radio')
     for (const radio of await choices.all()) {
       const box = await radio.boundingBox()
-      expect(box?.width).toBe(18)
-      expect(box?.height).toBe(18)
+      expect(box?.width).toBe(21)
+      expect(box?.height).toBe(21)
       const contained = await radio.evaluate((input) => {
         const option = input.closest('label')!
         const text = option.querySelector('span')!
@@ -518,6 +518,50 @@ test('keeps the accessible desktop assignment matrix', { tag: '@cross-browser' }
   await expect(table.getByRole('rowheader', { name: 'Asha' })).toBeVisible()
   await table.getByLabel('Asha rode from Home to Office').check()
   await expect(table.getByLabel('Asha rode from Home to Office')).toBeChecked()
+})
+
+test('keeps long route, expense, and rider content readable across responsive layouts', { tag: '@cross-browser' }, async ({ page }) => {
+  const from = 'Thiruvananthapuram Central Railway Station Main Entrance'
+  const to = 'International Convention Centre Riverside Drop-off Point'
+  const rider = 'Asha Balakrishnan Nair With A Long Passenger Name'
+  const expense = 'Secure overnight parking beside the railway station'
+
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.getByLabel('Stop 1 name').fill(from)
+  await page.getByLabel('Stop 2 name').fill(to)
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill(rider)
+  await page.getByRole('button', { name: 'Add expense' }).click()
+  await page.getByLabel('Expense 1 name').fill(expense)
+  await page.getByLabel(`${expense} applies to`).getByLabel('Selected riders').check()
+
+  await expect(page.getByRole('button', { name: 'Reset trip' }).getByText('Reset trip')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Look up road distance' })).toHaveCSS('font-size', '14px')
+  for (const control of await page.getByRole('radio').all()) {
+    const box = await control.boundingBox()
+    expect(box?.width).toBe(21)
+    expect(box?.height).toBe(21)
+  }
+  const riderCheckbox = page.getByLabel(`${rider} shares ${expense}`)
+  const checkboxBox = await riderCheckbox.boundingBox()
+  expect(checkboxBox?.width).toBe(21)
+  expect(checkboxBox?.height).toBe(21)
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    const route = page.getByRole('region', { name: `Riders from ${from} to ${to}` })
+    await expect(route).toContainText(from)
+    await expect(route).toContainText(to)
+    await expect(route).toContainText(rider)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 })
+  const table = page.getByRole('table')
+  await expect(table).toBeVisible()
+  await expect(table.getByRole('columnheader', { name: new RegExp(`${from}.*${to}`) })).toHaveAttribute('title', `${from} to ${to}`)
+  await expect(table.getByRole('rowheader', { name: rider })).toHaveAttribute('title', rider)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test('collapses completed sections into editable summaries and manages focus', async ({ page }) => {
