@@ -4,7 +4,8 @@ import { calculateTrip, editableTripDraftSchema, economyFromKmpl, formatCurrency
 import type { StoredTrip } from '../../../persistence/tripStorage'
 import type { VehiclePreset } from '../../../persistence/vehiclePresetStorage'
 import { displayNumber, routeSummary } from '../../utils/tripDraftUtils'
-import { classes } from '../../styles'
+import { layout } from '../../designSystem'
+import { Button, ButtonLabel, Card, IconButton } from '../ui/AppControls'
 
 type Props = {
   activeTripId: string
@@ -34,14 +35,14 @@ export function TripLibrary(props: Props) {
   const templates = props.trips.filter(({ deletedAt, kind }) => !deletedAt && kind === 'template')
   const deletedTrips = props.trips.filter(({ deletedAt }) => deletedAt)
   const tripCards = (items: StoredTrip[]) => (
-    <div className={classes('trip-list')}>
+    <div className={layout('trip-list')}>
       {items.map((trip) => {
         const complete = editableTripDraftSchema.safeParse(trip.draft)
         const total = complete.success ? calculateTrip(complete.data).totalCost : null
         return (
-          <article className={classes(`trip-card${trip.id === props.activeTripId ? ' trip-card-active' : ''}`)} key={trip.id} aria-label={trip.name}>
+          <Card className={layout(`trip-card${trip.id === props.activeTripId ? ' trip-card-active' : ''}`)} key={trip.id} aria-label={trip.name}>
             <div>
-              {trip.kind === 'template' && <span className={classes('template-label')}>Template</span>}
+              {trip.kind === 'template' && <span className={layout('template-label')}>Template</span>}
               <h3>
                 {trip.name}
                 {trip.id === props.activeTripId ? ' · Current' : ''}
@@ -51,85 +52,85 @@ export function TripLibrary(props: Props) {
                 Updated {new Date(trip.updatedAt).toLocaleDateString()} · {total === null ? 'Incomplete' : formatCurrency(total, trip.draft.fuelSettings.currency)}
               </p>
             </div>
-            <div className={classes('trip-card-actions')}>
-              <button type="button" onClick={() => props.onOpenTrip(trip)}>
+            <div className={layout('trip-card-actions')}>
+              <Button variant="primary" onClick={() => props.onOpenTrip(trip)}>
                 {trip.kind === 'template' ? 'Use template' : 'Open'}
-              </button>
+              </Button>
               {trip.kind === 'trip' && (
                 <>
-                  <button type="button" onClick={() => props.onDuplicateTrip(trip)}>
+                  <Button variant="quiet" onClick={() => props.onDuplicateTrip(trip)}>
                     <Copy size={15} /> Duplicate
-                  </button>
-                  <button type="button" onClick={() => props.onSaveTemplate(trip)}>
+                  </Button>
+                  <Button variant="quiet" onClick={() => props.onSaveTemplate(trip)}>
                     Save template
-                  </button>
+                  </Button>
                 </>
               )}
-              <button type="button" onClick={() => props.onRenameTrip(trip)}>
+              <Button variant="quiet" onClick={() => props.onRenameTrip(trip)}>
                 Rename
-              </button>
-              <button type="button" onClick={() => props.onDeleteTrip(trip)}>
+              </Button>
+              <Button variant="danger" onClick={() => props.onDeleteTrip(trip)}>
                 Delete
-              </button>
+              </Button>
             </div>
-          </article>
+          </Card>
         )
       })}
     </div>
   )
   return (
-    <section className={classes('library')} aria-labelledby="trip-library-title">
-      <div className={classes('library-heading')}>
+    <section className={layout('library')} aria-labelledby="trip-library-title">
+      <div className={layout('library-heading')}>
         <div>
           <h2 id="trip-library-title">Saved trips</h2>
           <p>Keep journeys separate or reuse a familiar route.</p>
         </div>
-        <button className={classes('library-close')} type="button" aria-label="Close saved trips" onClick={props.onClose}>
+        <IconButton className={layout('library-close')} label="Close saved trips" onClick={props.onClose}>
           <X />
-        </button>
+        </IconButton>
       </div>
-      <div className={classes('library-actions')}>
-        <button type="button" onClick={props.onNewTrip}>
+      <div className={layout('library-actions')}>
+        <Button onClick={props.onNewTrip}>
           <Plus size={17} /> New trip
-        </button>
-        <button type="button" onClick={props.onCopyLink}>
+        </Button>
+        <Button onClick={props.onCopyLink}>
           <Copy size={17} /> Copy editable link
-        </button>
-        <button type="button" onClick={props.onDownload}>
+        </Button>
+        <Button onClick={props.onDownload}>
           <Download size={17} /> Download trip file
-        </button>
-        <label className={classes('trips-button')}>
+        </Button>
+        <ButtonLabel variant="quiet">
           <Upload size={17} /> Import trip file
-          <input className={classes('sr-only')} type="file" accept="application/json,.json" onChange={props.onImport} />
-        </label>
+          <input className={layout('sr-only')} type="file" accept="application/json,.json" onChange={props.onImport} />
+        </ButtonLabel>
       </div>
       {props.importError && (
-        <p className={classes('import-error')} role="alert">
+        <p className={layout('import-error')} role="alert">
           {props.importError}
         </p>
       )}
       {props.message && <p role="status">{props.message}</p>}
-      <div className={classes('library-group')}>
+      <div className={layout('library-group')}>
         <h3>Trips</h3>
         {activeTrips.length ? tripCards(activeTrips) : <p>No trips saved yet.</p>}
       </div>
-      <div className={classes('library-group')}>
+      <div className={layout('library-group')}>
         <h3>Templates</h3>
         {templates.length ? tripCards(templates) : <p>No templates saved yet.</p>}
       </div>
-      <div className={classes('library-group')}>
+      <div className={layout('library-group')}>
         <h3>Vehicle presets</h3>
-        <div className={classes('library-actions')}>
-          <button type="button" onClick={props.onNewVehicle}>
+        <div className={layout('library-actions')}>
+          <Button className="col-span-full justify-self-start max-[360px]:w-full" onClick={props.onNewVehicle}>
             <Plus size={17} /> Save vehicle preset
-          </button>
+          </Button>
         </div>
         {props.vehiclePresets.length === 0 ? (
           <p>No vehicle presets saved yet.</p>
         ) : (
-          <div className={classes('preset-list')}>
+          <div className={layout('preset-list')}>
             {props.vehiclePresets.map((preset) => (
-              <article className={classes('preset-row')} key={preset.id} aria-label={preset.name}>
+              <Card className={layout('preset-row')} key={preset.id} aria-label={preset.name}>
                 <div>
                   <strong>{preset.name}</strong>
                   <p>
@@ -137,38 +138,38 @@ export function TripLibrary(props: Props) {
                     {preset.fuelType ? ` · ${preset.fuelType}` : ''} · {preset.preferredUnits === 'metric' ? 'Metric' : preset.preferredUnits === 'us' ? 'US customary' : 'UK imperial'}
                   </p>
                 </div>
-                <div className={classes('preset-actions')}>
-                  <button type="button" onClick={() => props.onUseVehicle(preset)}>
+                <div className={layout('preset-actions')}>
+                  <Button variant="secondary" onClick={() => props.onUseVehicle(preset)}>
                     Use
-                  </button>
-                  <button type="button" onClick={() => props.onEditVehicle(preset)}>
+                  </Button>
+                  <Button variant="quiet" onClick={() => props.onEditVehicle(preset)}>
                     Edit
-                  </button>
-                  <button type="button" onClick={() => props.onDeleteVehicle(preset)}>
+                  </Button>
+                  <Button variant="danger" onClick={() => props.onDeleteVehicle(preset)}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
-              </article>
+              </Card>
             ))}
           </div>
         )}
       </div>
       {deletedTrips.length > 0 && (
-        <details className={classes('library-group')}>
+        <details className={layout('library-group')}>
           <summary>Recently deleted</summary>
-          <div className={classes('trip-list')}>
+          <div className={layout('trip-list')}>
             {deletedTrips.map((trip) => (
-              <article className={classes('trip-card')} key={trip.id} aria-label={trip.name}>
+              <Card className={layout('trip-card')} key={trip.id} aria-label={trip.name}>
                 <div>
                   <h3>{trip.name}</h3>
                   <p>{routeSummary(trip.draft)}</p>
                 </div>
-                <div className={classes('trip-card-actions')}>
-                  <button type="button" onClick={() => props.onRestoreTrip(trip)}>
+                <div className={layout('trip-card-actions')}>
+                  <Button variant="primary" onClick={() => props.onRestoreTrip(trip)}>
                     Restore
-                  </button>
+                  </Button>
                 </div>
-              </article>
+              </Card>
             ))}
           </div>
         </details>

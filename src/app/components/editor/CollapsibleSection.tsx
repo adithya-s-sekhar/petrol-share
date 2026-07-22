@@ -1,6 +1,6 @@
 import type { ReactNode, Ref } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { classes } from '../../styles'
+import { layout } from '../../designSystem'
 
 interface CollapsibleSectionProps {
   controls: string
@@ -16,10 +16,10 @@ interface CollapsibleSectionProps {
 export function CollapsibleSection({ controls, open, step, title, summary, buttonRef, onOpen, children }: CollapsibleSectionProps) {
   const titleId = `${controls}-title`
   return (
-    <section className={classes(`panel${open ? '' : ' panel-collapsed'}`)} aria-labelledby={titleId}>
+    <section className={layout(`panel${open ? '' : ' panel-collapsed'}`)} aria-labelledby={titleId}>
       {!open ? (
-        <button ref={buttonRef} className={classes('section-toggle')} type="button" aria-expanded="false" aria-controls={`${controls}-content`} onClick={onOpen}>
-          <span className={classes('step')}>{step}</span>
+        <button ref={buttonRef} className={layout('section-toggle')} type="button" aria-expanded="false" aria-controls={`${controls}-content`} onClick={onOpen}>
+          <span className={layout('step')}>{step}</span>
           <div><h2 id={titleId}>{title}</h2><p>{summary}</p></div>
           <ChevronDown aria-hidden="true" />
         </button>
@@ -29,5 +29,5 @@ export function CollapsibleSection({ controls, open, step, title, summary, butto
 }
 
 export function SectionHeading({ controls, step, title, children }: { controls: string; step: number; title: string; children: ReactNode }) {
-  return <div className={classes('panel-heading')}><span className={classes('step')}>{step}</span><div><h2 id={`${controls}-title`}>{title}</h2><p>{children}</p></div></div>
+  return <div className={layout('panel-heading')}><span className={layout('step')}>{step}</span><div><h2 id={`${controls}-title`}>{title}</h2><p>{children}</p></div></div>
 }
