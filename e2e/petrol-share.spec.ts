@@ -41,8 +41,28 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
   await page.getByRole('button', { name: 'Add expense' }).click()
   await page.getByLabel('Expense 1 name').fill('Parking at the railway station')
   await page.getByLabel('Parking at the railway station applies to').getByLabel('Selected riders').check()
+  const scopeOptions = page.getByLabel('Parking at the railway station applies to').getByRole('radio')
+  for (const radio of await scopeOptions.all()) {
+    const box = await radio.boundingBox()
+    expect(box?.width).toBe(18)
+    expect(box?.height).toBe(18)
+  }
   const riderChoice = page.locator('label').filter({ has: page.getByLabel('Asha shares Parking at the railway station') })
   await expect(riderChoice).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('keeps header actions separate at the narrowest supported viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  const trips = page.getByRole('button', { name: 'Trips' })
+  const saveStatus = page.getByRole('status').filter({ hasText: /Autosave|Saved|Saving/ })
+  await expect(trips).toBeVisible()
+  await expect(saveStatus).toBeVisible()
+
+  const [tripsBox, statusBox] = await Promise.all([trips.boundingBox(), saveStatus.boundingBox()])
+  expect(tripsBox).not.toBeNull()
+  expect(statusBox).not.toBeNull()
+  expect(tripsBox!.x + tripsBox!.width).toBeLessThanOrEqual(statusBox!.x)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
@@ -66,6 +86,42 @@ test('looks up an optional road distance and keeps it editable', async ({ page }
   await expect(page.getByText('Looked up')).toBeVisible()
   await page.getByLabel('Distance from Home, Kerala to Office, Kerala in kilometres').fill('40')
   await expect(page.getByText('Manual')).toBeVisible()
+})
+
+test('contains long road-distance suggestions on desktop and mobile', async ({ page }) => {
+  const longPlace = 'Central railway station entrance beside the international convention centre, Thiruvananthapuram, Kerala, India'
+  await page.route('https://nominatim.openstreetmap.org/search**', (route) => route.fulfill({
+    json: [{ place_id: 1, display_name: longPlace, lat: '10', lon: '76' }],
+  }))
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByRole('button', { name: 'Look up road distance' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Look up road distance' })
+  await dialog.getByRole('button', { name: 'Find places' }).click()
+
+  for (const width of [1280, 815, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    const choices = dialog.getByRole('radio')
+    for (const radio of await choices.all()) {
+      const box = await radio.boundingBox()
+      expect(box?.width).toBe(18)
+      expect(box?.height).toBe(18)
+      const contained = await radio.evaluate((input) => {
+        const option = input.closest('label')!
+        const text = option.querySelector('span')!
+        const optionRect = option.getBoundingClientRect()
+        const textRect = text.getBoundingClientRect()
+        return getComputedStyle(option).display === 'flex'
+          && option.scrollWidth <= option.clientWidth
+          && optionRect.left >= 0
+          && optionRect.right <= window.innerWidth
+          && textRect.left >= optionRect.left
+          && textRect.right <= optionRect.right
+      })
+      expect(contained).toBe(true)
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
 })
 
 test('uses vehicle and route presets and makes a safe editable round trip', async ({ page }) => {
