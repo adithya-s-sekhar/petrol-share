@@ -1,6 +1,6 @@
 import type { ReactNode, Ref } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { classes } from '../styles'
+import { classes } from '../../styles'
 
 interface CollapsibleSectionProps {
   controls: string

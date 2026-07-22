@@ -1,9 +1,9 @@
 import { ArrowDown, ArrowRight, ArrowUp, MapPin, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
-import { distanceFromKm, distanceToKm, type Stop, type TripDraft, type UnitSystem } from '../../domain'
-import { FieldError, IconButton } from '../AppControls'
-import { UNIT_SYSTEM_OPTIONS } from '../constants'
-import { displayNumber, numberFromInput, type ErrorMap } from '../tripDraftUtils'
-import { classes } from '../styles'
+import { distanceFromKm, distanceToKm, type Stop, type TripDraft, type UnitSystem } from '../../../domain'
+import { FieldError, IconButton } from '../ui/AppControls'
+import { UNIT_SYSTEM_OPTIONS } from '../../constants'
+import { displayNumber, numberFromInput, type ErrorMap } from '../../utils/tripDraftUtils'
+import { classes } from '../../styles'
 import { CollapsibleSection, SectionHeading } from './CollapsibleSection'
 
 interface RoutePanelProps {
@@ -12,7 +12,7 @@ interface RoutePanelProps {
   stopsById: Map<string, string>
   returnStops: Stop[]
   unitSystem: UnitSystem
-  units: ReturnType<typeof import('../../domain').unitLabels>
+  units: ReturnType<typeof import('../../../domain').unitLabels>
   open: boolean
   complete: boolean
   buttonRef: (node: HTMLButtonElement | null) => void

@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBlankTripDraft } from '../domain'
-import { UNDO_REMOVAL_TIMEOUT_MS } from './constants'
+import { createBlankTripDraft } from '../../domain'
+import { UNDO_REMOVAL_TIMEOUT_MS } from '../constants'
 import { useUndoRemoval } from './useUndoRemoval'
 
 describe('useUndoRemoval', () => {

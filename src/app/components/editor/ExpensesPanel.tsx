@@ -1,8 +1,8 @@
 import { Plus, Trash2 } from 'lucide-react'
-import type { AdditionalExpense, TripDraft } from '../../domain'
-import { FieldError, IconButton } from '../AppControls'
-import { numberFromInput, type ErrorMap } from '../tripDraftUtils'
-import { classes } from '../styles'
+import type { AdditionalExpense, TripDraft } from '../../../domain'
+import { FieldError, IconButton } from '../ui/AppControls'
+import { numberFromInput, type ErrorMap } from '../../utils/tripDraftUtils'
+import { classes } from '../../styles'
 import { SectionHeading } from './CollapsibleSection'
 
 interface ExpensesPanelProps {

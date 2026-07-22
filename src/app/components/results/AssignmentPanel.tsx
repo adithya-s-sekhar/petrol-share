@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowRight, Users } from 'lucide-react'
-import type { TripDraft } from '../../domain'
-import { classes } from '../styles'
+import type { TripDraft } from '../../../domain'
+import { classes } from '../../styles'
 
 type Props = {
   draft: TripDraft

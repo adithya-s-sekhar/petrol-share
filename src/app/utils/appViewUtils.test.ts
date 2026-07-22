@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createBlankTripDraft } from '../domain'
+import { createBlankTripDraft } from '../../domain'
 import { persistenceMessage, tripProgress, uniqueReturnStops } from './appViewUtils'
 
 describe('app view utilities', () => {

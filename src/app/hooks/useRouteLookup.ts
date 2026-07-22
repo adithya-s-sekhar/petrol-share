@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { TripDraft } from '../domain'
-import { openRouteProvider, type PlaceSuggestion } from '../maps/routeProvider'
+import type { TripDraft } from '../../domain'
+import { openRouteProvider, type PlaceSuggestion } from '../../maps/routeProvider'
 
 export type MapDialog = { legId: string; fromQuery: string; toQuery: string }
 

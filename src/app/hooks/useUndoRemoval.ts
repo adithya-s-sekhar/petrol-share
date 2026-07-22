@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { TripDraft } from '../domain'
-import { UNDO_REMOVAL_TIMEOUT_MS } from './constants'
-import type { UndoRemoval } from './types'
+import type { TripDraft } from '../../domain'
+import { UNDO_REMOVAL_TIMEOUT_MS } from '../constants'
+import type { UndoRemoval } from '../types'
 
 export function useUndoRemoval(setDraft: (draft: TripDraft) => void) {
   const [undoRemoval, setUndoRemoval] = useState<UndoRemoval | null>(null)

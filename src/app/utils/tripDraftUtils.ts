@@ -1,4 +1,4 @@
-import { editableTripDraftSchema, type TripDraft } from '../domain'
+import { editableTripDraftSchema, type TripDraft } from '../../domain'
 
 export type ErrorMap = Record<string, string>
 

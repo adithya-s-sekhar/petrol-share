@@ -1,8 +1,8 @@
 import { CircleAlert, Plus, Trash2, Users } from 'lucide-react'
-import type { TripDraft } from '../../domain'
-import { FieldError, IconButton } from '../AppControls'
-import type { ErrorMap } from '../tripDraftUtils'
-import { classes } from '../styles'
+import type { TripDraft } from '../../../domain'
+import { FieldError, IconButton } from '../ui/AppControls'
+import type { ErrorMap } from '../../utils/tripDraftUtils'
+import { classes } from '../../styles'
 import { CollapsibleSection, SectionHeading } from './CollapsibleSection'
 
 interface PeoplePanelProps {

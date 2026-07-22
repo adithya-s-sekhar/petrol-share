@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { useThemePreference } from './useThemePreference'
+import type { useThemePreference } from '../hooks/useThemePreference'
 
 export type ThemeContextValue = ReturnType<typeof useThemePreference>
 export const ThemeContext = createContext<ThemeContextValue | null>(null)

@@ -1,9 +1,9 @@
 import { ArrowRight } from 'lucide-react'
-import type { CurrencyOption } from '../../currencies'
-import { displayNumber, numberFromInput, type ErrorMap } from '../tripDraftUtils'
-import { classes } from '../styles'
-import { FieldError } from '../AppControls'
-import { economyFromKmpl, economyToKmpl, formatCurrency, priceFromPerLitre, priceToPerLitre, type TripDraft, type UnitSystem } from '../../domain'
+import type { CurrencyOption } from '../../../currencies'
+import { displayNumber, numberFromInput, type ErrorMap } from '../../utils/tripDraftUtils'
+import { classes } from '../../styles'
+import { FieldError } from '../ui/AppControls'
+import { economyFromKmpl, economyToKmpl, formatCurrency, priceFromPerLitre, priceToPerLitre, type TripDraft, type UnitSystem } from '../../../domain'
 import { CollapsibleSection, SectionHeading } from './CollapsibleSection'
 
 interface FuelPanelProps {
@@ -13,7 +13,7 @@ interface FuelPanelProps {
   open: boolean
   complete: boolean
   unitSystem: UnitSystem
-  units: ReturnType<typeof import('../../domain').unitLabels>
+  units: ReturnType<typeof import('../../../domain').unitLabels>
   buttonRef: (node: HTMLButtonElement | null) => void
   onOpen: () => void
   onDone: () => void

@@ -1,7 +1,7 @@
 import { type RefObject } from 'react'
 import { FolderOpen, Fuel, Monitor, Moon, RotateCcw, Sun } from 'lucide-react'
-import type { ThemePreference } from '../useThemePreference'
-import { classes } from '../styles'
+import type { ThemePreference } from '../../hooks/useThemePreference'
+import { classes } from '../../styles'
 
 type AppHeaderProps = {
   libraryOpen: boolean

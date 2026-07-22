@@ -1,5 +1,5 @@
 import { CarFront } from 'lucide-react'
-import { classes } from '../styles'
+import { classes } from '../../styles'
 
 export function Hero({ compact }: { compact: boolean }) {
   return <section className={classes(`hero${compact ? ' hero-compact' : ''}`)} aria-labelledby="page-title">
