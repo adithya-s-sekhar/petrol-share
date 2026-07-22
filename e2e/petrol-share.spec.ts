@@ -34,7 +34,7 @@ test('adds, assigns, edits, persists, and removes additional expenses', async ({
   await expect(page.getByLabel('Expense 1 name')).toHaveCount(0)
 })
 
-test('keeps additional-expense controls within a mobile viewport after scope changes', async ({ page }) => {
+test('keeps additional-expense controls within a mobile viewport after scope changes', { tag: '@cross-browser' }, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Add person' }).click()
   await page.getByLabel('Person 1 name').fill('Asha')
@@ -52,7 +52,7 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('keeps header actions separate at the narrowest supported viewport', async ({ page }) => {
+test('keeps header actions separate at the narrowest supported viewport', { tag: '@cross-browser' }, async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 })
   const trips = page.getByRole('button', { name: 'Trips' })
   const saveStatus = page.getByRole('status').filter({ hasText: /Autosave|Saved|Saving/ })
@@ -66,7 +66,7 @@ test('keeps header actions separate at the narrowest supported viewport', async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('looks up an optional road distance and keeps it editable', async ({ page }) => {
+test('looks up an optional road distance and keeps it editable', { tag: '@cross-browser' }, async ({ page }) => {
   await page.route('https://nominatim.openstreetmap.org/search**', async (route) => {
     const query = new URL(route.request().url()).searchParams.get('q')
     await route.fulfill({ json: [{ place_id: query === 'Home' ? 1 : 2, display_name: `${query}, Kerala`, lat: query === 'Home' ? '10' : '11', lon: query === 'Home' ? '76' : '77' }] })
@@ -88,7 +88,7 @@ test('looks up an optional road distance and keeps it editable', async ({ page }
   await expect(page.getByText('Manual')).toBeVisible()
 })
 
-test('contains long road-distance suggestions on desktop and mobile', async ({ page }) => {
+test('contains long road-distance suggestions on desktop and mobile', { tag: '@cross-browser' }, async ({ page }) => {
   const longPlace = 'Central railway station entrance beside the international convention centre, Thiruvananthapuram, Kerala, India'
   await page.route('https://nominatim.openstreetmap.org/search**', (route) => route.fulfill({
     json: [{ place_id: 1, display_name: longPlace, lat: '10', lon: '76' }],
@@ -403,7 +403,7 @@ test('shows live results, explains the calculation, and updates after a valid ed
   await expect(summary).toContainText('45 km ÷ 15 km/L = 3 L')
 })
 
-test('provides mobile assignment cards without horizontal overflow', async ({ page }) => {
+test('provides mobile assignment cards without horizontal overflow', { tag: '@cross-browser' }, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const stops = Array.from({ length: 9 }, (_, index) => `Long stop name ${index + 1}`)
   await page.getByLabel('Stop 1 name').fill(stops[0])
@@ -445,7 +445,7 @@ test('provides mobile assignment cards without horizontal overflow', async ({ pa
   expect(hasHorizontalOverflow).toBe(false)
 })
 
-test('keeps the accessible desktop assignment matrix', async ({ page }) => {
+test('keeps the accessible desktop assignment matrix', { tag: '@cross-browser' }, async ({ page }) => {
   await page.getByLabel('Stop 1 name').fill('Home')
   await page.getByLabel('Stop 2 name').fill('Office')
   await page.getByRole('button', { name: 'Add person' }).click()
@@ -475,7 +475,7 @@ test('collapses completed sections into editable summaries and manages focus', a
   await expect(page.getByLabel('Distance from Home to Studio in kilometres')).toHaveValue('48')
 })
 
-test('keeps a mobile result shortcut visible without obscuring the result', async ({ page }) => {
+test('keeps a mobile result shortcut visible without obscuring the result', { tag: '@cross-browser' }, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByLabel('Stop 1 name').fill('Home')
   await page.getByLabel('Stop 2 name').fill('Office')

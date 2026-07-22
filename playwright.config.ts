@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: true,
   retries: 0,
-  reporter: [['html', { open: 'never' }]],
+  reporter: process.env.CI ? 'blob' : [['html', { open: 'never' }]],
   use: {
     baseURL: 'http://127.0.0.1:4173',
     locale: 'en-IN',
@@ -18,10 +18,12 @@ export default defineConfig({
     },
     {
       name: 'firefox',
+      grep: /@cross-browser/,
       use: { ...devices['Desktop Firefox'] },
     },
     {
       name: 'webkit',
+      grep: /@cross-browser/,
       use: { ...devices['Desktop Safari'] },
     },
   ],
