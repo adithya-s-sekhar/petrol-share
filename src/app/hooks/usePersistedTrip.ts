@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { createBlankTripDraft, editableTripDraftSchema, type TripDraft } from '../domain'
-import { loadTripLibrary, saveStoredTrip, type StoredTrip } from '../persistence/tripStorage'
+import { createBlankTripDraft, editableTripDraftSchema, type TripDraft } from '../../domain'
+import { loadTripLibrary, saveStoredTrip, type StoredTrip } from '../../persistence/tripStorage'
 
 export type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'migrated' | 'error'
 const AUTOSAVE_DELAY_MS = 500

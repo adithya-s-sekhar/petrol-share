@@ -1,10 +1,10 @@
 import type { ChangeEvent } from 'react'
 import { Copy, Download, Plus, Upload } from 'lucide-react'
-import { calculateTrip, editableTripDraftSchema, economyFromKmpl, formatCurrency, unitLabels } from '../../domain'
-import type { StoredTrip } from '../../persistence/tripStorage'
-import type { VehiclePreset } from '../../persistence/vehiclePresetStorage'
-import { displayNumber, routeSummary } from '../tripDraftUtils'
-import { classes } from '../styles'
+import { calculateTrip, editableTripDraftSchema, economyFromKmpl, formatCurrency, unitLabels } from '../../../domain'
+import type { StoredTrip } from '../../../persistence/tripStorage'
+import type { VehiclePreset } from '../../../persistence/vehiclePresetStorage'
+import { displayNumber, routeSummary } from '../../utils/tripDraftUtils'
+import { classes } from '../../styles'
 
 type Props = {
   activeTripId: string; importError: string; message: string; trips: StoredTrip[]; vehiclePresets: VehiclePreset[]

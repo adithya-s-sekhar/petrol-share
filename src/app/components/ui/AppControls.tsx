@@ -1,5 +1,5 @@
 import { CircleAlert } from 'lucide-react'
-import { classes } from './styles'
+import { classes } from '../../styles'
 
 export function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null

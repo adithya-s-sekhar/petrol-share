@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createBlankTripDraft } from '../domain'
+import { createBlankTripDraft } from '../../domain'
 import { cloneDraft, displayNumber, numberFromInput, routeSummary, validationErrors } from './tripDraftUtils'
 
 describe('trip draft utilities', () => {

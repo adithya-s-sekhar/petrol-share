@@ -1,4 +1,4 @@
-import type { TripDraft } from '../domain'
+import type { TripDraft } from '../../domain'
 
 export type EditorSection = 'route' | 'fuel' | 'people'
 

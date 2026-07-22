@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { normalizeTripRoute, type Person, type TripDraft } from '../domain'
+import { normalizeTripRoute, type Person, type TripDraft } from '../../domain'
 
 function createId(): string {
   return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)

@@ -1,7 +1,7 @@
 import type { Ref } from 'react'
 import { ArrowRight, ChevronDown, CircleAlert, Fuel, Share2 } from 'lucide-react'
-import { distanceFromKm, formatCurrency, unitLabels, volumeFromLitres, type TripDraft, type TripResult, type UnitSystem } from '../../domain'
-import { classes } from '../styles'
+import { distanceFromKm, formatCurrency, unitLabels, volumeFromLitres, type TripDraft, type TripResult, type UnitSystem } from '../../../domain'
+import { classes } from '../../styles'
 
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 type Props = { draft: TripDraft; result: TripResult | null; unitSystem: UnitSystem; stopsById: Map<string, string>; panelRef: Ref<HTMLElement>; shareStatus: ShareStatus; shareError: string; shareMessageCopied: boolean; onReveal: () => void; onShare: () => void }
