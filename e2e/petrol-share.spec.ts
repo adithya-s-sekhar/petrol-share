@@ -847,6 +847,48 @@ test('keeps a mobile result shortcut visible without obscuring the result', { ta
   await expect(shortcut).toBeHidden()
 })
 
+test('stacks mobile removal undo and result actions inside the safe viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('30')
+  await page.getByLabel('Fuel economy').fill('15')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 2 name').fill('Ben')
+  await page.clock.install()
+  await page.getByRole('button', { name: 'Remove Ben' }).click()
+
+  const undo = page.getByRole('button', { name: 'Undo' })
+  const shortcut = page.getByRole('link', { name: 'View split · ₹200.00' })
+  const toast = undo.locator('..')
+  await expect(undo).toBeVisible()
+  await expect(shortcut).toBeVisible()
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 })
+      const [undoBox, shortcutBox] = await Promise.all([undo.boundingBox(), shortcut.boundingBox()])
+      expect(undoBox).not.toBeNull()
+      expect(shortcutBox).not.toBeNull()
+      expect(undoBox!.height).toBeGreaterThanOrEqual(44)
+      expect(shortcutBox!.height).toBeGreaterThanOrEqual(44)
+      expect(undoBox!.y + undoBox!.height).toBeLessThanOrEqual(shortcutBox!.y)
+      expect(undoBox!.x).toBeGreaterThanOrEqual(0)
+      expect(shortcutBox!.x).toBeGreaterThanOrEqual(0)
+      expect(undoBox!.x + undoBox!.width).toBeLessThanOrEqual(width)
+      expect(shortcutBox!.x + shortcutBox!.width).toBeLessThanOrEqual(width)
+      expect(shortcutBox!.y + shortcutBox!.height).toBeLessThanOrEqual(844)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await expect(toast).toHaveScreenshot(`floating-actions-undo-${theme}-${width}.png`, { maxDiffPixels: 50 })
+      await expect(shortcut).toHaveScreenshot(`floating-actions-result-${theme}-${width}.png`, { maxDiffPixels: 50 })
+    }
+  }
+})
+
 test('navigates completed sections without replaying the full mobile form', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const navigator = page.getByRole('navigation', { name: 'Trip sections' })
