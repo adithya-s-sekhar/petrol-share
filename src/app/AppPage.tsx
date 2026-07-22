@@ -29,6 +29,7 @@ import type { ImportPreview, ShareStatus, TripDialog, VehicleDialog } from './ty
 import { useUndoRemoval } from './hooks/useUndoRemoval'
 import { useModalFocus } from './hooks/useModalFocus'
 import { WorkflowNavigator } from './components/layout/WorkflowNavigator'
+import { AppFooter } from './components/layout/AppFooter'
 
 export function AppPage() {
   const { themePreference, cycleTheme } = useTheme()
@@ -841,7 +842,7 @@ export function AppPage() {
           </div>
         </div>
       )}
-      <footer>Made for fair journeys.</footer>
+      <AppFooter />
     </div>
   )
 }

@@ -22,6 +22,12 @@ beforeEach(async () => {
 })
 
 describe('App', () => {
+  it('credits Codex from the application footer', async () => {
+    render(<App />)
+
+    expect(await screen.findByRole('link', { name: 'Made with Codex' })).toHaveAttribute('href', 'https://openai.com/codex/')
+  })
+
   it('shows persistent labels, driver guidance, and searchable currency descriptions', async () => {
     const user = userEvent.setup()
     render(<App />)
