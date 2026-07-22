@@ -1,6 +1,7 @@
 import type { UnitSystem } from '../domain'
 
 export const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
+export const CODEX_URL = 'https://openai.com/codex/'
 export const MOBILE_ASSIGNMENTS_QUERY = '(max-width: 560px)'
 export const UNDO_REMOVAL_TIMEOUT_MS = 8_000
 

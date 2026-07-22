@@ -5,6 +5,24 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('shows the Codex credit across themes and layouts', async ({ page }, testInfo) => {
+  const footer = page.locator('footer')
+  const credit = footer.getByRole('link', { name: 'Made with Codex' })
+
+  await expect(credit).toHaveAttribute('href', 'https://openai.com/codex/')
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await footer.scrollIntoViewIfNeeded()
+      await expect(footer).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await footer.screenshot({ path: testInfo.outputPath(`footer-${theme}-${width}.png`) })
+    }
+  }
+})
+
 test('uses theme-aware workflow and route timeline surfaces', async ({ page }, testInfo) => {
   test.setTimeout(90_000)
 
