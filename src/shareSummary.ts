@@ -70,6 +70,8 @@ export function createSummaryImage({ result, currency, unassignedLegNames, pageU
   write(context, `${formatCurrency(result.totalFuelCost, currency)} + ${formatCurrency(result.totalAdditionalCost, currency)}`, PADDING, 375, { color: '#c4d5cf', font: '700 28px Inter, system-ui, sans-serif' })
   write(context, 'JOURNEY TOTAL', PADDING, 415, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
   write(context, formatCurrency(result.totalCost, currency), CARD_WIDTH - PADDING, 420, { color: '#88dfb5', font: '500 58px Georgia, serif', align: 'right' })
+  const activeRules = [...new Set(result.allocationRules.map(({ description }) => description))].join(' · ')
+  write(context, `Split rule: ${activeRules}`, PADDING, 455, { color: '#a9c1b8', font: '600 19px Inter, system-ui, sans-serif' })
 
   if (hasWarning) {
     context.fillStyle = 'rgba(235,171,51,.15)'

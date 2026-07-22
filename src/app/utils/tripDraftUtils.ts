@@ -26,6 +26,7 @@ export function cloneDraft(source: TripDraft, template = false): TripDraft {
     legs: source.legs.map((leg) => ({ ...leg, id: legIds.get(leg.id)!, fromStopId: stopIds.get(leg.fromStopId)!, toStopId: stopIds.get(leg.toStopId)! })),
     people: template ? [] : source.people.map((person) => ({ ...person, id: personIds.get(person.id)!, assignedLegIds: person.assignedLegIds.map((id) => legIds.get(id)!).filter(Boolean) })),
     expenses: template ? [] : (source.expenses ?? []).map((expense) => ({ ...expense, id: recordId(), ...(expense.legId ? { legId: legIds.get(expense.legId) } : {}), personIds: expense.personIds.map((id) => personIds.get(id)!).filter(Boolean) })),
+    allocationRules: template ? [] : (source.allocationRules ?? []).map((rule) => ({ ...rule, legId: legIds.get(rule.legId)!, shares: rule.shares.map((share) => ({ ...share, personId: personIds.get(share.personId)! })).filter(({ personId }) => Boolean(personId)) })).filter(({ legId }) => Boolean(legId)),
     updatedAt: now,
   }
 }

@@ -131,4 +131,21 @@ describe('trip validation', () => {
       expect.objectContaining({ message: 'Select at least one person for this expense', path: ['expenses', 0, 'personIds'] }),
     ]))
   })
+
+  it('defaults allocation rules for old trips and rejects under-allocated percentages', () => {
+    expect(persistedTripDraftSchema.parse(validDraft()).allocationRules).toEqual([])
+    const draft = validDraft()
+    draft.allocationRules = [{ legId: 'leg-a-b', mode: 'percentages', shares: [{ personId: 'person-1', value: 90 }] }]
+    const result = editableTripDraftSchema.safeParse(draft)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ message: 'Percentages must add up to exactly 100%' }))
+  })
+
+  it('rejects fixed contributions that exceed the leg cost', () => {
+    const draft = validDraft()
+    draft.allocationRules = [{ legId: 'leg-a-b', mode: 'fixed', shares: [{ personId: 'person-1', value: 1_000 }] }]
+    const result = tripDraftSchema.safeParse(draft)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ message: 'Fixed contributions must add up to the leg cost' }))
+  })
 })

@@ -69,6 +69,7 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
           ? [...new Set([...person.assignedLegIds, legId])]
           : person.assignedLegIds.filter((id) => id !== legId),
       }),
+      allocationRules: (draft.allocationRules ?? []).map((rule) => rule.legId === legId ? { ...rule, shares: rule.shares.filter((share) => share.personId !== personId) } : rule),
     })
   }
 
@@ -81,6 +82,7 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
           ? [...new Set([...person.assignedLegIds, legId])]
           : person.assignedLegIds.filter((id) => id !== legId),
       })),
+      allocationRules: assigned ? draft.allocationRules : (draft.allocationRules ?? []).filter((rule) => rule.legId !== legId),
     })
   }
 
@@ -95,6 +97,7 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
     const index = draft.legs.findIndex((leg) => leg.id === legId)
     if (index < 1) return
     const previousLegId = draft.legs[index - 1].id
+    const previousRule = (draft.allocationRules ?? []).find((rule) => rule.legId === previousLegId)
     update({
       ...draft,
       people: draft.people.map((person) => ({
@@ -103,8 +106,13 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
           ? [...new Set([...person.assignedLegIds, legId])]
           : person.assignedLegIds.filter((id) => id !== legId),
       })),
+      allocationRules: previousRule ? [...(draft.allocationRules ?? []).filter((rule) => rule.legId !== legId), { ...previousRule, legId }] : (draft.allocationRules ?? []).filter((rule) => rule.legId !== legId),
     })
   }
 
-  return { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments, copyPreviousLegDistance, copyPreviousLegAssignments }
+  function setAllocationRule(rule: NonNullable<TripDraft['allocationRules']>[number]) {
+    update({ ...draft, allocationRules: [...(draft.allocationRules ?? []).filter(({ legId }) => legId !== rule.legId), rule] })
+  }
+
+  return { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments, copyPreviousLegDistance, copyPreviousLegAssignments, setAllocationRule }
 }

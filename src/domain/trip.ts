@@ -21,6 +21,19 @@ export interface Person {
   assignedLegIds: TripId[]
 }
 
+export type AllocationMode = 'equal' | 'weights' | 'percentages' | 'fixed'
+
+export interface RiderShare {
+  personId: TripId
+  value: number
+}
+
+export interface LegAllocationRule {
+  legId: TripId
+  mode: AllocationMode
+  shares: RiderShare[]
+}
+
 export interface FuelSettings {
   fuelEconomyKmpl: number | null
   fuelPricePerLitre: number | null
@@ -47,6 +60,8 @@ export interface TripDraft {
   fuelSettings: FuelSettings
   /** Optional for backwards compatibility with trips saved before expenses existed. */
   expenses?: AdditionalExpense[]
+  /** Missing rules preserve the original equal-per-rider behaviour. */
+  allocationRules?: LegAllocationRule[]
   updatedAt: string
 }
 
@@ -70,6 +85,7 @@ export interface TripResult {
   people: PersonResult[]
   unassignedLegIds: TripId[]
   unassignedExpenseIds: TripId[]
+  allocationRules: Array<{ legId: TripId; description: string }>
 }
 
 export interface DraftFactoryOptions {
