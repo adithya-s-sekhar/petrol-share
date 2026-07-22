@@ -169,7 +169,16 @@ html[data-theme="dark"] .destructive-button:hover:not(:disabled) { background: #
 html[data-theme="dark"] .secondary-button { border-color: #477662; background: #193329; color: #80d8b0; }
 html[data-theme="dark"] .secondary-button:hover { background: #214337; }
 html[data-theme="dark"] .return-stops,
-html[data-theme="dark"] .leg-row { background: #182722; }
+html[data-theme="dark"] .leg-row,
+html[data-theme="dark"] .fuel-presets { background: var(--color-elevated); }
+html[data-theme="dark"] .fuel-presets,
+html[data-theme="dark"] .fuel-preset { border-color: var(--color-border); }
+html[data-theme="dark"] .fuel-preset,
+html[data-theme="dark"] .recent-currencies > button { background: var(--color-control); color: var(--color-accent); }
+html[data-theme="dark"] .recent-currencies > button[aria-pressed="true"] { background: var(--color-selected); border-color: var(--color-selected-border); }
+html[data-theme="dark"] .fuel-presets p,
+html[data-theme="dark"] .fuel-preset span,
+html[data-theme="dark"] .recent-currencies > span { color: var(--color-muted); }
 html[data-theme="dark"] .return-stops > span,
 html[data-theme="dark"] .return-stops > p,
 html[data-theme="dark"] .subsection h3,

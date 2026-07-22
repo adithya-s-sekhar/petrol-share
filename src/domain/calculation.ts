@@ -22,10 +22,15 @@ export function formatCurrency(
   currency: string,
   options: CurrencyFormatOptions = {},
 ): string {
-  return new Intl.NumberFormat(options.locale, {
-    style: 'currency',
-    currency,
-  }).format(amount)
+  try {
+    return new Intl.NumberFormat(options.locale, {
+      style: 'currency',
+      currency,
+    }).format(amount)
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    return new Intl.NumberFormat(options.locale, { maximumFractionDigits: 2 }).format(amount)
+  }
 }
 
 function requirePositive(value: number | null, label: string): number {

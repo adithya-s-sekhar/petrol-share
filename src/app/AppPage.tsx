@@ -8,6 +8,7 @@ import { useTheme } from './theme/themeContext'
 import { useTripEditor } from './hooks/useTripEditor'
 import { saveStoredTrip, type StoredTrip } from '../persistence/tripStorage'
 import { loadVehiclePresets, saveVehiclePresets, type VehiclePreset } from '../persistence/vehiclePresetStorage'
+import { loadRecentCurrencies, rememberRecentCurrency } from '../persistence/recentCurrencyStorage'
 import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip } from '../tripSharing'
 import { cloneDraft, recordId, routeSummary, validationErrors } from './utils/tripDraftUtils'
 import { layout } from './designSystem'
@@ -45,6 +46,7 @@ export function AppPage() {
   const [tripDialog, setTripDialog] = useState<TripDialog>(null)
   const [vehicleDialog, setVehicleDialog] = useState<VehicleDialog>(null)
   const [vehiclePresets, setVehiclePresets] = useState<VehiclePreset[]>(loadVehiclePresets)
+  const [recentCurrencies, setRecentCurrencies] = useState<string[]>(loadRecentCurrencies)
   const [vehicleName, setVehicleName] = useState('')
   const [vehicleEconomy, setVehicleEconomy] = useState('')
   const [vehicleFuelType, setVehicleFuelType] = useState('')
@@ -170,6 +172,10 @@ export function AppPage() {
     setUnitSystem(preset.preferredUnits)
     setOpenSections((sections) => new Set(sections).add('fuel'))
     setLibraryMessage(`${preset.name} applied. Review or edit the auto-filled fuel details below.`)
+  }
+
+  function recordCurrencyUse(currency: string) {
+    setRecentCurrencies(rememberRecentCurrency(currency))
   }
 
   async function createTripFromDraft(name: string, source: TripDraft, template = false) {
@@ -540,6 +546,8 @@ export function AppPage() {
             />
             <FuelPanel
               currencies={currencies}
+              recentCurrencies={recentCurrencies}
+              vehiclePresets={vehiclePresets}
               draft={draft}
               errors={errors}
               open={openSections.has('fuel')}
@@ -552,6 +560,8 @@ export function AppPage() {
               onOpen={() => openSection('fuel', 'economy')}
               onDone={() => closeSection('fuel', 'people')}
               onUpdate={update}
+              onCurrencyUse={recordCurrencyUse}
+              onApplyVehiclePreset={applyVehiclePreset}
             />
             <PeoplePanel
               draft={draft}

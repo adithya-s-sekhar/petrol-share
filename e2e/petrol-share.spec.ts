@@ -5,6 +5,56 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('reuses recent currencies and applies a vehicle preset safely from fuel details', async ({ page }, testInfo) => {
+  test.setTimeout(90_000)
+  await page.evaluate(() => {
+    localStorage.setItem('petrol-share.recent-currencies.v1', JSON.stringify(['EUR', 'USD', 'EUR', 'INR']))
+    localStorage.setItem('petrol-share.vehicle-presets.v1', JSON.stringify([{
+      id: 'tourer',
+      name: 'Touring car',
+      fuelEconomyKmpl: 20,
+      preferredUnits: 'us',
+      fuelType: 'Petrol',
+    }]))
+  })
+  await page.reload()
+
+  const fuelPanel = page.locator('#fuel-content').locator('..')
+  const recent = page.getByLabel('Recently used currencies')
+  await expect(recent.getByRole('button')).toHaveText(['EUR', 'USD', 'INR'])
+  await recent.getByRole('button', { name: 'USD' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByLabel('Currency')).toHaveValue('USD')
+  await page.reload()
+  await expect(page.getByLabel('Recently used currencies').getByRole('button')).toHaveText(['USD', 'EUR', 'INR'])
+
+  await page.getByLabel('Currency').fill('')
+  await expect(page.getByRole('heading', { name: 'Fuel details' })).toBeVisible()
+  await expect(page.getByLabel('Currency')).toHaveValue('')
+  await page.getByLabel('Currency').fill('USD')
+
+  await page.getByLabel('Fuel economy').fill('10')
+  await page.getByLabel('Price per litre').fill('100')
+  const preset = page.getByRole('region', { name: 'Saved vehicles' })
+  await expect(preset).toContainText('47.042917 MPG · US customary · Petrol')
+  await preset.getByRole('button', { name: 'Apply' }).click()
+  await expect(page.getByLabel('Fuel economy')).toHaveValue('47.042917')
+  await expect(page.getByLabel('Price per US gallon')).toHaveValue('378.541178')
+  await expect(page.getByLabel('Fuel type (optional)')).toHaveValue('Petrol')
+  await page.getByRole('button', { name: 'Metric' }).click()
+  await expect(page.getByLabel('Price per litre')).toHaveValue('100')
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(fuelPanel).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await fuelPanel.screenshot({ path: testInfo.outputPath(`fuel-shortcuts-${theme}-${width}.png`) })
+    }
+  }
+})
+
 test('loads the bundled Inter font', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => document.fonts.check('16px "Inter Variable"'))).toBe(true)
   await expect(page.locator('html')).toHaveCSS('font-family', /Inter Variable/)
