@@ -6,11 +6,17 @@
     --color-page: #f3f6f2;
     --color-panel: #ffffff;
     --color-elevated: #f8faf8;
+    --color-drawer: #ffffff;
+    --color-modal: #ffffff;
+    --color-card: #f8faf8;
     --color-input: #fbfcfb;
     --color-border: #ccd7d1;
     --color-text: #152a25;
     --color-muted: #66736f;
     --color-disabled: #68756f;
+    --color-control: #ffffff;
+    --color-control-border: #71817a;
+    --color-control-disabled: #e2e7e4;
     --color-selected: #e5f4ec;
     --color-selected-border: #4c9d77;
     --color-accent: #17875e;
@@ -36,7 +42,14 @@
   button:disabled { cursor: not-allowed; opacity: .55; }
   button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
   input:not([type="radio"]):not([type="checkbox"]), select { width: 100%; min-height: 44px; padding: 9px 12px; color: var(--color-text); background: var(--color-input); border: 1px solid var(--color-border); border-radius: 9px; transition: border-color .15s, box-shadow .15s; }
-  input[type="radio"], input[type="checkbox"] { flex: 0 0 auto; width: 21px; min-height: 21px; height: 21px; margin: 0; padding: 0; accent-color: #17875e; }
+  input[type="radio"], input[type="checkbox"] { appearance: none; display: grid; flex: 0 0 auto; width: 21px; min-height: 21px; height: 21px; margin: 0; padding: 0; place-content: center; border: 2px solid var(--color-control-border); background: var(--color-control); }
+  input[type="radio"] { border-radius: 50%; }
+  input[type="checkbox"] { border-radius: 6px; }
+  input[type="radio"]::before { content: ""; width: 9px; height: 9px; transform: scale(0); border-radius: 50%; background: white; }
+  input[type="checkbox"]::before { content: ""; width: 11px; height: 11px; transform: scale(0); clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 20%, 84% 6%, 38% 70%); background: white; }
+  input[type="radio"]:checked, input[type="checkbox"]:checked { border-color: var(--color-accent); background: var(--color-accent); }
+  input[type="radio"]:checked::before, input[type="checkbox"]:checked::before { transform: scale(1); }
+  input[type="radio"]:disabled, input[type="checkbox"]:disabled { border-color: var(--color-disabled); background: var(--color-control-disabled); }
   input:hover { border-color: #a8bab1; }
   input:focus { border-color: #17875e; box-shadow: 0 0 0 3px rgb(23 135 94 / .1); outline: 0; }
   input:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
@@ -99,11 +112,17 @@ html[data-theme="dark"] {
   --color-page: #0d1714;
   --color-panel: #14201c;
   --color-elevated: #182722;
+  --color-drawer: #172923;
+  --color-modal: #1d3029;
+  --color-card: #20342d;
   --color-input: #101d19;
   --color-border: #43574f;
   --color-text: #dce9e3;
-  --color-muted: #a6b5af;
-  --color-disabled: #91a49c;
+  --color-muted: #b2c2bc;
+  --color-disabled: #93a59e;
+  --color-control: #0d1915;
+  --color-control-border: #8ba098;
+  --color-control-disabled: #34443e;
   --color-selected: #1b3a2d;
   --color-selected-border: #61b68c;
   --color-accent: #70d0a5;
@@ -151,12 +170,13 @@ html[data-theme="dark"] .return-stops > span,
 html[data-theme="dark"] .return-stops > p,
 html[data-theme="dark"] .subsection h3,
 html[data-theme="dark"] .form-field label,
+html[data-theme="dark"] .row-label,
 html[data-theme="dark"] .unit-input > span { color: #9dafA7; }
 html[data-theme="dark"] .return-stop-button { border-color: #3f6655; background: #12231d; color: #76d3aa; }
 html[data-theme="dark"] .subsection { border-color: #304039; }
 html[data-theme="dark"] .distance-source-manual { background: #33443d; color: #cad8d2; }
 html[data-theme="dark"] .empty-state { border-color: #405049; background: #17231f; color: #93a39d; }
-html[data-theme="dark"] .assignment-card { border-color: #35473f; background: #182722; }
+html[data-theme="dark"] .assignment-card { border-color: var(--color-border); background: var(--color-card); }
 html[data-theme="dark"] .assignment-card-heading { border-color: #35473f; }
 html[data-theme="dark"] .select-all-button,
 html[data-theme="dark"] .assignment-chip { border-color: #435a50; background: #101d19; color: #dce9e3; }
@@ -172,7 +192,8 @@ html[data-theme="dark"] .assignment-target:active { background: #29483b; }
 html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
 
 /* Semantic surfaces shared by editor cards, libraries, dialogs, and controls. */
-.expense-row, .assignment-card, .return-stops, .leg-row, .route-overview, .import-preview, .map-attribution { background: var(--color-elevated); }
+.expense-row, .return-stops, .leg-row, .route-overview, .import-preview, .map-attribution { background: var(--color-elevated); }
+.assignment-card, .trip-card { background: var(--color-card); }
 .expense-row, .assignment-card, .preset-row, .trip-card, .suggestion-list label { border-color: var(--color-border); }
 .workflow-nav { border-color: var(--color-border); background: color-mix(in srgb, var(--color-panel) 95%, transparent); }
 .workflow-nav button, .workflow-nav a { color: var(--color-accent); }
@@ -188,7 +209,8 @@ html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
 .assignment-chip:has(input:checked), .suggestion-list label:has(input:checked),
 .unit-picker button[aria-pressed="true"], .trip-card-active { background: var(--color-selected); border-color: var(--color-selected-border); color: var(--color-accent); }
 .unit-picker { background: var(--color-elevated); }
-.reset-dialog, .map-dialog, .library { background: var(--color-panel); color: var(--color-text); border-color: var(--color-border); }
+.reset-dialog, .map-dialog { background: var(--color-modal); color: var(--color-text); border-color: var(--color-border); }
+.library { background: var(--color-drawer); color: var(--color-text); border-color: var(--color-border); }
 .dialog-backdrop { background: var(--color-overlay); }
 .reset-dialog p, .map-dialog p, .library-heading p, .preset-row p, .trip-card p { color: var(--color-muted); }
 .dialog-confirm, .destructive-button, .reset-button { color: var(--color-destructive); }
@@ -197,8 +219,7 @@ html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
 .recovery-notice, .import-error, .error-notice { background: var(--color-destructive-surface); border-color: var(--color-destructive-border); color: var(--color-destructive); }
 
 html[data-theme="dark"] .site-header { background: color-mix(in srgb, var(--color-panel) 88%, transparent); }
-html[data-theme="dark"] .panel,
-html[data-theme="dark"] .library { background: color-mix(in srgb, var(--color-panel) 96%, transparent); }
+html[data-theme="dark"] .panel { background: color-mix(in srgb, var(--color-panel) 96%, transparent); }
 html[data-theme="dark"] .trips-button,
 html[data-theme="dark"] .library-actions button,
 html[data-theme="dark"] .preset-actions button,
@@ -207,6 +228,9 @@ html[data-theme="dark"] .secondary-button { border-color: var(--color-selected-b
 html[data-theme="dark"] .trip-card-actions button:hover,
 html[data-theme="dark"] .theme-button:hover,
 html[data-theme="dark"] .reset-button:hover { background: var(--color-accent-hover); }
+html[data-theme="dark"] .trip-card-actions button { color: var(--color-accent); }
+html[data-theme="dark"] .trip-card-actions button:first-child { border-color: var(--color-selected-border); background: #17875e; color: white; }
+html[data-theme="dark"] .trip-card-actions button:last-child { border-color: var(--color-destructive-border); color: var(--color-destructive); }
 html[data-theme="dark"] .dialog-cancel:hover:not(:disabled),
 html[data-theme="dark"] .select-all-button:hover:not(:disabled),
 html[data-theme="dark"] .lookup-button:hover:not(:disabled) { background: var(--color-accent-hover); }
