@@ -118,4 +118,17 @@ describe('trip validation', () => {
     expect(result.legs[0].distanceKm).toBe(12.5)
     expect(result.fuelSettings).toMatchObject({ fuelEconomyKmpl: 16, fuelPricePerLitre: 104.25 })
   })
+
+  it('defaults expenses for older persisted trips and validates editable expense fields', () => {
+    expect(persistedTripDraftSchema.parse(validDraft()).expenses).toEqual([])
+    const draft = validDraft()
+    draft.expenses = [{ id: 'expense-1', name: '', amount: null, scope: 'people', personIds: [] }]
+    const result = editableTripDraftSchema.safeParse(draft)
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: 'Expense name is required', path: ['expenses', 0, 'name'] }),
+      expect.objectContaining({ message: 'Expense amount must be a positive number', path: ['expenses', 0, 'amount'] }),
+      expect.objectContaining({ message: 'Select at least one person for this expense', path: ['expenses', 0, 'personIds'] }),
+    ]))
+  })
 })

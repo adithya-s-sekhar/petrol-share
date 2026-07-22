@@ -40,6 +40,15 @@ const personSchema = z.object({
   assignedLegIds: z.array(idSchema),
 })
 
+const expenseSchema = z.object({
+  id: idSchema,
+  name: z.string().trim(),
+  amount: nullablePositiveNumberSchema,
+  scope: z.enum(['journey', 'leg', 'people']),
+  legId: idSchema.optional(),
+  personIds: z.array(idSchema),
+})
+
 const fuelSettingsSchema = z.object({
   fuelEconomyKmpl: nullablePositiveNumberSchema,
   fuelPricePerLitre: nullablePositiveNumberSchema,
@@ -53,12 +62,13 @@ const tripShapeSchema = z.object({
   legs: z.array(legSchema),
   people: z.array(personSchema),
   fuelSettings: fuelSettingsSchema,
+  expenses: z.array(expenseSchema).default([]),
   updatedAt: z.iso.datetime(),
 })
 
 function addDuplicateIdIssues(
   values: readonly { id: string }[],
-  path: 'stops' | 'legs' | 'people',
+  path: 'stops' | 'legs' | 'people' | 'expenses',
   context: z.core.$RefinementCtx,
 ): void {
   const seen = new Set<string>()
@@ -81,9 +91,11 @@ function validateReferences(
   addDuplicateIdIssues(draft.stops, 'stops', context)
   addDuplicateIdIssues(draft.legs, 'legs', context)
   addDuplicateIdIssues(draft.people, 'people', context)
+  addDuplicateIdIssues(draft.expenses, 'expenses', context)
 
   const stopIds = new Set(draft.stops.map(({ id }) => id))
   const legIds = new Set(draft.legs.map(({ id }) => id))
+  const personIds = new Set(draft.people.map(({ id }) => id))
 
   draft.legs.forEach((leg, index) => {
     if (!stopIds.has(leg.fromStopId)) {
@@ -112,6 +124,17 @@ function validateReferences(
         })
       }
       assigned.add(legId)
+    })
+  })
+  draft.expenses.forEach((expense, expenseIndex) => {
+    if (expense.scope === 'leg' && expense.legId && !legIds.has(expense.legId)) {
+      context.addIssue({ code: 'custom', message: 'Choose a journey leg for this expense', path: ['expenses', expenseIndex, 'legId'] })
+    }
+    const assigned = new Set<string>()
+    expense.personIds.forEach((personId, assignmentIndex) => {
+      if (!personIds.has(personId)) context.addIssue({ code: 'custom', message: 'Expense references an unknown person', path: ['expenses', expenseIndex, 'personIds', assignmentIndex] })
+      if (assigned.has(personId)) context.addIssue({ code: 'custom', message: 'Person is assigned to the expense more than once', path: ['expenses', expenseIndex, 'personIds', assignmentIndex] })
+      assigned.add(personId)
     })
   })
 }
@@ -150,6 +173,13 @@ export const tripDraftSchema = tripShapeSchema.superRefine((draft, context) => {
     personNames.add(comparableName)
   })
 
+  draft.expenses.forEach((expense, index) => {
+    if (!expense.name) context.addIssue({ code: 'custom', message: 'Expense name is required', path: ['expenses', index, 'name'] })
+    if (expense.amount === null) context.addIssue({ code: 'custom', message: 'Expense amount must be a positive number', path: ['expenses', index, 'amount'] })
+    if (expense.scope === 'leg' && !expense.legId) context.addIssue({ code: 'custom', message: 'Choose a journey leg for this expense', path: ['expenses', index, 'legId'] })
+    if (expense.scope === 'people' && expense.personIds.length === 0) context.addIssue({ code: 'custom', message: 'Select at least one person for this expense', path: ['expenses', index, 'personIds'] })
+  })
+
   draft.legs.forEach((leg, index) => {
     if (leg.distanceKm === null) {
       context.addIssue({ code: 'custom', message: 'Distance must be a positive number', path: ['legs', index, 'distanceKm'] })
@@ -185,6 +215,11 @@ export const editableTripDraftSchema = z.preprocess((input) => {
     draft.legs = draft.legs.map((leg) => typeof leg === 'object' && leg !== null
       ? { ...leg, distanceKm: toNumber((leg as Record<string, unknown>).distanceKm) }
       : leg)
+  }
+  if (Array.isArray(draft.expenses)) {
+    draft.expenses = draft.expenses.map((expense) => typeof expense === 'object' && expense !== null
+      ? { ...expense, amount: toNumber((expense as Record<string, unknown>).amount) }
+      : expense)
   }
   if (typeof draft.fuelSettings === 'object' && draft.fuelSettings !== null) {
     const settings = draft.fuelSettings as Record<string, unknown>

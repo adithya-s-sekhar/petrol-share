@@ -20,6 +20,13 @@ const portableTripSchema = z.object({
       name: z.string().max(200),
       assignedLegIndexes: z.array(z.number().int().nonnegative()).max(99),
     })).max(100),
+    expenses: z.array(z.object({
+      name: z.string().max(200),
+      amount: z.number().finite().positive().nullable(),
+      scope: z.enum(['journey', 'leg', 'people']),
+      legIndex: z.number().int().nonnegative().optional(),
+      personIndexes: z.array(z.number().int().nonnegative()).max(100),
+    })).max(100).optional().default([]),
     fuelSettings: z.object({
       fuelEconomyKmpl: z.number().finite().positive().nullable(),
       fuelPricePerLitre: z.number().finite().positive().nullable(),
@@ -35,6 +42,10 @@ const portableTripSchema = z.object({
     if (new Set(person.assignedLegIndexes).size !== person.assignedLegIndexes.length || person.assignedLegIndexes.some((index) => index >= payload.trip.legs.length)) {
       context.addIssue({ code: 'custom', message: 'Rider assignments reference an unknown leg', path: ['trip', 'people', personIndex, 'assignedLegIndexes'] })
     }
+  })
+  payload.trip.expenses.forEach((expense, expenseIndex) => {
+    if (expense.scope === 'leg' && (expense.legIndex === undefined || expense.legIndex >= payload.trip.legs.length)) context.addIssue({ code: 'custom', message: 'Expense references an unknown leg', path: ['trip', 'expenses', expenseIndex, 'legIndex'] })
+    if (new Set(expense.personIndexes).size !== expense.personIndexes.length || expense.personIndexes.some((index) => index >= payload.trip.people.length)) context.addIssue({ code: 'custom', message: 'Expense references an unknown rider', path: ['trip', 'expenses', expenseIndex, 'personIndexes'] })
   })
 })
 
@@ -65,6 +76,7 @@ function assertSize(value: string): void {
 
 export function serializeEditableTrip(draft: TripDraft, name: string, unitSystem: UnitSystem): string {
   const legIndexes = new Map(draft.legs.map((leg, index) => [leg.id, index]))
+  const personIndexes = new Map(draft.people.map((person, index) => [person.id, index]))
   return JSON.stringify({
     format: 'petrol-share-trip',
     version: EDITABLE_TRIP_FORMAT_VERSION,
@@ -76,6 +88,13 @@ export function serializeEditableTrip(draft: TripDraft, name: string, unitSystem
       people: draft.people.map(({ name: personName, assignedLegIds }) => ({
         name: personName,
         assignedLegIndexes: assignedLegIds.map((legId) => legIndexes.get(legId)).filter((index): index is number => index !== undefined),
+      })),
+      expenses: (draft.expenses ?? []).map(({ name: expenseName, amount, scope, legId, personIds }) => ({
+        name: expenseName,
+        amount,
+        scope,
+        ...(legId && legIndexes.has(legId) ? { legIndex: legIndexes.get(legId) } : {}),
+        personIndexes: personIds.map((personId) => personIndexes.get(personId)).filter((index): index is number => index !== undefined),
       })),
       fuelSettings: draft.fuelSettings,
     },
@@ -98,9 +117,16 @@ export function deserializeEditableTrip(serialized: string): EditableTripImport 
     stops: parsed.data.trip.stops.map((name, index) => ({ id: stopIds[index], name })),
     legs: parsed.data.trip.legs.map((leg, index) => ({ id: legIds[index], fromStopId: stopIds[index], toStopId: stopIds[index + 1], ...leg })),
     people: parsed.data.trip.people.map((person) => ({ id: id(), name: person.name, assignedLegIds: person.assignedLegIndexes.map((index) => legIds[index]) })),
+    expenses: [],
     fuelSettings: parsed.data.trip.fuelSettings,
     updatedAt: new Date().toISOString(),
   }
+  const personIds = draft.people.map(({ id: personId }) => personId)
+  draft.expenses = parsed.data.trip.expenses.map((expense) => ({
+    id: id(), name: expense.name, amount: expense.amount, scope: expense.scope,
+    ...(expense.legIndex === undefined ? {} : { legId: legIds[expense.legIndex] }),
+    personIds: expense.personIndexes.map((index) => personIds[index]),
+  }))
   if (!persistedTripDraftSchema.safeParse(draft).success) throw new EditableTripImportError('This trip is malformed or incomplete. Ask the sender to export it again.')
   return { name: parsed.data.name, unitSystem: parsed.data.unitSystem, draft }
 }

@@ -103,6 +103,10 @@ const styles: Record<string, string> = {
   'done-button': 'mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[9px] border border-[#b7d5c6] bg-[#eaf5ef] px-4 py-2 font-extrabold text-[#176c4d] hover:bg-[#dceee5]',
   compact: '!mb-[18px]', step: 'grid size-[31px] shrink-0 place-items-center rounded-[9px] bg-[#17875e] text-[13px] font-extrabold text-white',
   'stops-list': 'mb-3.5 grid list-none gap-2.5 p-0', 'people-list': 'mb-3.5 grid gap-2.5',
+  'expense-list': 'grid gap-3', 'expense-row': 'grid gap-3 rounded-xl border border-[#dfe6e1] bg-[#f8faf8] p-4',
+  'expense-grid': 'grid grid-cols-[minmax(0,1fr)_150px_auto] items-end gap-3 max-[560px]:grid-cols-1',
+  'expense-scope': 'grid grid-cols-3 gap-2 max-[560px]:grid-cols-1 [&_label]:flex [&_label]:min-h-11 [&_label]:cursor-pointer [&_label]:items-center [&_label]:gap-2 [&_label]:rounded-lg [&_label]:border [&_label]:border-[#d7e0db] [&_label]:bg-white [&_label]:px-3 [&_label:has(input:checked)]:border-[#64ad89] [&_label:has(input:checked)]:bg-[#e5f4ec]',
+  'expense-people': 'flex flex-wrap gap-2 [&_label]:flex [&_label]:min-h-11 [&_label]:items-center [&_label]:gap-2 [&_label]:rounded-lg [&_label]:border [&_label]:border-[#d7e0db] [&_label]:bg-white [&_label]:px-3 [&_label:has(input:checked)]:border-[#64ad89] [&_label:has(input:checked)]:bg-[#e5f4ec]',
   'stop-row': 'grid grid-cols-[25px_minmax(0,1fr)_auto] items-end gap-[9px] max-[560px]:grid-cols-[20px_minmax(0,1fr)]', 'person-row': 'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[9px]',
   'stop-index': 'grid h-[42px] w-[25px] shrink-0 place-items-center text-[11px] font-extrabold text-[#8a9692] max-[560px]:w-5',
   'field-grow': 'min-w-0 flex-1', 'row-label': 'mb-1.5 block text-xs font-bold text-[#4e5f59]', 'input-with-icon': 'relative [&_svg]:pointer-events-none [&_svg]:absolute [&_svg]:left-[11px] [&_svg]:top-3 [&_svg]:text-[#7c8c86] [&_input]:pl-[38px]',
@@ -170,12 +174,14 @@ function recordId(): string {
 function cloneDraft(source: TripDraft, template = false): TripDraft {
   const stopIds = new Map(source.stops.map(({ id }) => [id, recordId()]))
   const legIds = new Map(source.legs.map(({ id }) => [id, recordId()]))
+  const personIds = new Map(source.people.map(({ id }) => [id, recordId()]))
   const now = new Date().toISOString()
   return {
     ...structuredClone(source),
     stops: source.stops.map((stop) => ({ ...stop, id: stopIds.get(stop.id)! })),
     legs: source.legs.map((leg) => ({ ...leg, id: legIds.get(leg.id)!, fromStopId: stopIds.get(leg.fromStopId)!, toStopId: stopIds.get(leg.toStopId)! })),
-    people: template ? [] : source.people.map((person) => ({ ...person, id: recordId(), assignedLegIds: person.assignedLegIds.map((id) => legIds.get(id)!).filter(Boolean) })),
+    people: template ? [] : source.people.map((person) => ({ ...person, id: personIds.get(person.id)!, assignedLegIds: person.assignedLegIds.map((id) => legIds.get(id)!).filter(Boolean) })),
+    expenses: template ? [] : (source.expenses ?? []).map((expense) => ({ ...expense, id: recordId(), ...(expense.legId ? { legId: legIds.get(expense.legId) } : {}), personIds: expense.personIds.map((id) => personIds.get(id)!).filter(Boolean) })),
     updatedAt: now,
   }
 }
@@ -527,7 +533,15 @@ function App() {
 
   function removePerson(personId: string, name: string, index: number) {
     setUndoRemoval({ draft, message: `${name || `Person ${index + 1}`} removed.` })
-    update({ ...draft, people: draft.people.filter(({ id }) => id !== personId) })
+    update({ ...draft, people: draft.people.filter(({ id }) => id !== personId), expenses: (draft.expenses ?? []).map((expense) => ({ ...expense, personIds: expense.personIds.filter((id) => id !== personId) })) })
+  }
+
+  function addExpense() {
+    update({ ...draft, expenses: [...(draft.expenses ?? []), { id: recordId(), name: '', amount: null, scope: 'journey', personIds: [] }] })
+  }
+
+  function changeExpense(id: string, changes: Partial<NonNullable<TripDraft['expenses']>[number]>) {
+    update({ ...draft, expenses: (draft.expenses ?? []).map((expense) => expense.id === id ? { ...expense, ...changes } : expense) })
   }
 
   function undoLastRemoval() {
@@ -569,6 +583,7 @@ function App() {
         const leg = draft.legs.find((item) => item.id === id)!
         return `${stopsById.get(leg.fromStopId)} → ${stopsById.get(leg.toStopId)}`
       })
+      unassignedLegNames.push(...result.unassignedExpenseIds.map((id) => `Expense: ${(draft.expenses ?? []).find((expense) => expense.id === id)?.name || 'Unnamed expense'}`))
       const image = createSummaryImage({ result, currency: draft.fuelSettings.currency, unassignedLegNames, pageUrl: PUBLIC_SITE_URL })
       const shareResult = await shareSummary(image, PUBLIC_SITE_URL)
       setShareMessageCopied(shareResult.messageCopied)
@@ -601,7 +616,7 @@ function App() {
   const routeComplete = draft.stops.every((stop) => stop.name.trim()) && draft.legs.every((leg) => leg.distanceKm !== null && leg.distanceKm > 0)
   const fuelComplete = (draft.fuelSettings.fuelEconomyKmpl ?? 0) > 0 && (draft.fuelSettings.fuelPricePerLitre ?? 0) > 0 && draft.fuelSettings.currency.length === 3
   const peopleComplete = draft.people.length > 0 && draft.people.every((person) => person.name.trim())
-  const hasProgress = draft.stops.some((stop) => stop.name.trim()) || draft.people.length > 0 || draft.legs.some((leg) => leg.distanceKm !== null)
+  const hasProgress = draft.stops.some((stop) => stop.name.trim()) || draft.people.length > 0 || draft.legs.some((leg) => leg.distanceKm !== null) || (draft.expenses?.length ?? 0) > 0
   const returnStops = draft.stops.filter((stop, index, stops) => {
     const name = stop.name.trim().toLocaleLowerCase()
     return name !== ''
@@ -727,11 +742,35 @@ function App() {
               {peopleComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('people')}>Done adding riders <Users size={18} /></button>}
               </>}
             </section>
+            <section className={classes("panel")} aria-labelledby="expenses-title">
+              <div className={classes("panel-heading")}><span className={classes("step")}>4</span><div><h2 id="expenses-title">Additional expenses</h2><p>Add tolls, parking, or other fixed journey costs and choose who shares them.</p></div></div>
+              <div className={classes("expense-list")}>
+                {(draft.expenses ?? []).map((expense, index) => {
+                  const amountError = errors[`expenses.${index}.amount`]
+                  const nameError = errors[`expenses.${index}.name`]
+                  const assignmentError = errors[`expenses.${index}.personIds`] ?? errors[`expenses.${index}.legId`]
+                  return <article className={classes("expense-row")} key={expense.id} aria-label={expense.name || `Expense ${index + 1}`}>
+                    <div className={classes("expense-grid")}>
+                      <div className={classes("form-field")}><label htmlFor={`expense-name-${expense.id}`}>Expense name</label><input id={`expense-name-${expense.id}`} aria-label={`Expense ${index + 1} name`} placeholder="e.g. Toll or parking" value={expense.name} aria-invalid={Boolean(nameError)} onChange={(event) => changeExpense(expense.id, { name: event.target.value })} /><FieldError id={`expense-name-${expense.id}-error`} message={nameError} /></div>
+                      <div className={classes("form-field")}><label htmlFor={`expense-amount-${expense.id}`}>Amount</label><input id={`expense-amount-${expense.id}`} aria-label={`${expense.name || `Expense ${index + 1}`} amount`} type="number" inputMode="decimal" min="0" step="any" value={expense.amount ?? ''} aria-invalid={Boolean(amountError)} onChange={(event) => changeExpense(expense.id, { amount: numberFromInput(event.target.value) })} /><FieldError id={`expense-amount-${expense.id}-error`} message={amountError} /></div>
+                      <IconButton label={`Remove ${expense.name || `expense ${index + 1}`}`} destructive onClick={() => update({ ...draft, expenses: (draft.expenses ?? []).filter(({ id }) => id !== expense.id) })}><Trash2 /></IconButton>
+                    </div>
+                    <div className={classes("expense-scope")} role="radiogroup" aria-label={`${expense.name || `Expense ${index + 1}`} applies to`}>
+                      {([['journey', 'Whole journey'], ['leg', 'A particular leg'], ['people', 'Selected riders']] as const).map(([scope, label]) => <label key={scope}><input type="radio" name={`expense-scope-${expense.id}`} checked={expense.scope === scope} onChange={() => changeExpense(expense.id, { scope })} />{label}</label>)}
+                    </div>
+                    {expense.scope === 'leg' && <div className={classes("form-field")}><label htmlFor={`expense-leg-${expense.id}`}>Journey leg</label><select id={`expense-leg-${expense.id}`} aria-label={`${expense.name || `Expense ${index + 1}`} journey leg`} value={expense.legId ?? ''} aria-invalid={Boolean(assignmentError)} onChange={(event) => changeExpense(expense.id, { legId: event.target.value || undefined })}><option value="">Choose a leg</option>{draft.legs.map((leg) => <option key={leg.id} value={leg.id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</option>)}</select></div>}
+                    {expense.scope === 'people' && <div><span className={classes("row-label")}>Riders sharing this expense</span><div className={classes("expense-people")}>{draft.people.map((person) => <label key={person.id}><input type="checkbox" aria-label={`${person.name || 'Unnamed person'} shares ${expense.name || `expense ${index + 1}`}`} checked={expense.personIds.includes(person.id)} onChange={(event) => changeExpense(expense.id, { personIds: event.target.checked ? [...new Set([...expense.personIds, person.id])] : expense.personIds.filter((id) => id !== person.id) })} />{person.name || 'Unnamed'}</label>)}</div></div>}
+                    <FieldError id={`expense-assignment-${expense.id}-error`} message={assignmentError} />
+                  </article>
+                })}
+              </div>
+              <button className={classes("secondary-button full-button")} type="button" onClick={addExpense}><Plus size={18} /> Add expense</button>
+            </section>
           </div>
 
           <aside className={classes("results-column")}>
             <section className={classes("panel assignment-panel")} aria-labelledby="assignment-title">
-              <div className={classes("panel-heading compact")}><span className={classes("step")}>4</span><div><h2 id="assignment-title">Assign each leg</h2><p>Check who travelled on each part.</p></div></div>
+              <div className={classes("panel-heading compact")}><span className={classes("step")}>5</span><div><h2 id="assignment-title">Assign each leg</h2><p>Check who travelled on each part.</p></div></div>
               {draft.people.length === 0 ? <div className={classes("empty-state")}><Users /><p>Add people to start assigning riders.</p></div> : <>
                 {!mobileAssignments && <div className={classes("assignment-scroll")}><table><thead><tr><th scope="col">Passenger</th>{draft.legs.map((leg) => <th scope="col" key={leg.id}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={13} /><span>{stopsById.get(leg.toStopId)}</span></th>)}</tr></thead><tbody>{draft.people.map((person) => <tr key={person.id}><th scope="row">{person.name || 'Unnamed'}</th>{draft.legs.map((leg) => { const assignmentLabel = `${person.name || 'Unnamed person'} rode from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)}`; return <td key={leg.id}><label className="assignment-target"><input type="checkbox" aria-label={assignmentLabel} checked={person.assignedLegIds.includes(leg.id)} onChange={(event) => setLegAssignment(person.id, leg.id, event.target.checked)} /><span className={classes("sr-only")}>{assignmentLabel}</span></label></td> })}</tr>)}</tbody></table></div>}
                 {mobileAssignments && <div className={classes("assignment-cards")}>{draft.legs.map((leg) => {
@@ -749,12 +788,12 @@ function App() {
             <section ref={resultsRef} id="results" className={classes("results-card")} aria-labelledby="results-title" aria-live="polite">
               <div className={classes("results-heading")}><div><span className={classes("results-kicker")}>Your split</span><h2 id="results-title">Journey summary</h2></div><Fuel /></div>
               {!result ? <div className={classes("results-empty")}><p>Complete the trip details to see your fair split. Once they are valid, the split updates automatically.</p><button className={classes("primary-button")} type="button" onClick={revealResults}>Check trip details <ArrowRight size={18} /></button></div> : <>
-                <div className={classes("totals")}><div><span>Total distance</span><strong>{distanceFromKm(result.totalDistanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance}</strong></div><div><span>Fuel used</span><strong>{volumeFromLitres(result.totalLitres, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.volume}</strong></div><div className={classes("total-cost")}><span>Total fuel cost</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
+                <div className={classes("totals")}><div><span>Total distance</span><strong>{distanceFromKm(result.totalDistanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance}</strong></div><div><span>Fuel used</span><strong>{volumeFromLitres(result.totalLitres, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.volume}</strong></div>{result.totalAdditionalCost > 0 && <><div><span>Fuel cost</span><strong>{formatCurrency(result.totalFuelCost, draft.fuelSettings.currency)}</strong></div><div><span>Additional expenses</span><strong>{formatCurrency(result.totalAdditionalCost, draft.fuelSettings.currency)}</strong></div></>}<div className={classes("total-cost")}><span>{result.totalAdditionalCost > 0 ? 'Journey total' : 'Total fuel cost'}</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
                 <p className={classes("live-result-note")}>This split updates automatically as you edit trip details.</p>
-                {result.unassignedLegIds.length > 0 ? <div className={classes("notice warning-notice")} role="status"><CircleAlert /><div><strong>Some legs have no riders</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}</ul></div></div> : <div className={classes("split-list")}>{result.people.map((person) => <div className={classes("split-row")} key={person.personId}><div className={classes("avatar")} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{distanceFromKm(person.distanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance} · {person.legIds.length} {person.legIds.length === 1 ? 'leg' : 'legs'}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
+                {result.unassignedLegIds.length > 0 || result.unassignedExpenseIds.length > 0 ? <div className={classes("notice warning-notice")} role="status"><CircleAlert /><div><strong>{result.unassignedExpenseIds.length === 0 ? 'Some legs have no riders' : 'Some costs have no riders'}</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{result.unassignedExpenseIds.length > 0 && 'Leg: '}{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}{result.unassignedExpenseIds.map((id) => <li key={id}>Expense: {(draft.expenses ?? []).find((expense) => expense.id === id)?.name || 'Unnamed expense'}</li>)}</ul></div></div> : <div className={classes("split-list")}>{result.people.map((person) => <div className={classes("split-row")} key={person.personId}><div className={classes("avatar")} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{result.totalAdditionalCost > 0 ? `Fuel ${formatCurrency(person.fuelCost, draft.fuelSettings.currency)} + expenses ${formatCurrency(person.expenseCost, draft.fuelSettings.currency)}` : `${distanceFromKm(person.distanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${units.distance} · ${person.legIds.length} ${person.legIds.length === 1 ? 'leg' : 'legs'}`}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
                 <details className={classes("calculation-details")}><summary>How this was calculated <ChevronDown aria-hidden="true" /></summary><div className={classes("calculation-content")}>
-                  <section><h3>Route totals and formula</h3><p>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km ÷ {draft.fuelSettings.fuelEconomyKmpl!.toLocaleString()} km/L = {result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</p><p>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L × {formatCurrency(draft.fuelSettings.fuelPricePerLitre!, draft.fuelSettings.currency)} per litre = {formatCurrency(result.totalCost, draft.fuelSettings.currency)}</p></section>
-                  <div className={classes("formula-box")}>Each rider’s leg share = leg distance ÷ fuel economy × price per litre ÷ riders on that leg</div>
+                  <section><h3>Route totals and formula</h3><p>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km ÷ {draft.fuelSettings.fuelEconomyKmpl!.toLocaleString()} km/L = {result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</p><p>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L × {formatCurrency(draft.fuelSettings.fuelPricePerLitre!, draft.fuelSettings.currency)} per litre = {formatCurrency(result.totalFuelCost, draft.fuelSettings.currency)}</p><p>Fuel {formatCurrency(result.totalFuelCost, draft.fuelSettings.currency)} + expenses {formatCurrency(result.totalAdditionalCost, draft.fuelSettings.currency)} = {formatCurrency(result.totalCost, draft.fuelSettings.currency)}</p></section>
+                  <div className={classes("formula-box")}>Each rider’s total = fuel shares for their legs + fixed expenses assigned to them</div>
                   <section><h3>Per-leg allocation</h3><div className={classes("allocation-list")}>{calculationLegs.map(({ leg, riders, cost }) => <div className={classes("allocation-row")} key={leg.id}><strong>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</strong><span>{leg.distanceKm!.toLocaleString()} km · {formatCurrency(cost, draft.fuelSettings.currency)} · {riders.length === 0 ? 'No riders assigned' : `${formatCurrency(cost / riders.length, draft.fuelSettings.currency)} each for ${riders.map(({ name }) => name).join(', ')}`}</span></div>)}</div></section>
                   <section><h3>Rounding</h3><p>Calculations keep full precision. Displayed shares use the currency’s minor units, then any leftover units go to the largest fractional remainders (ties follow rider order) so the displayed shares add up exactly to the rounded total.</p></section>
                 </div></details>
