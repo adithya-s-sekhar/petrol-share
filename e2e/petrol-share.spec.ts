@@ -5,6 +5,63 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('exports an editable link and previews it before adding it on another device', async ({ browser }) => {
+  const senderContext = await browser.newContext()
+  await senderContext.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (value: string) => { (window as Window & { copiedEditableTrip?: string }).copiedEditableTrip = value; return Promise.resolve() },
+      },
+    })
+  })
+  const sender = await senderContext.newPage()
+  await sender.goto('/')
+  await sender.getByLabel('Stop 1 name').fill('Home')
+  await sender.getByLabel('Stop 2 name').fill('Cafe')
+  await sender.getByRole('button', { name: 'Add another stop' }).click()
+  await sender.getByLabel('Stop 3 name').fill('Office')
+  await sender.getByLabel('Distance from Home to Cafe in kilometres').fill('10')
+  await sender.getByLabel('Distance from Cafe to Office in kilometres').fill('15')
+  await sender.getByLabel('Fuel economy').fill('12')
+  await sender.getByLabel('Price per litre').fill('105')
+  await sender.getByRole('button', { name: 'Add person' }).click()
+  await sender.getByLabel('Person 1 name').fill('Asha')
+  await sender.getByLabel('Asha rode from Cafe to Office').check()
+  await sender.getByRole('button', { name: 'US customary' }).click()
+  await sender.getByRole('button', { name: 'Trips' }).click()
+  await sender.getByRole('article', { name: 'Untitled trip' }).getByRole('button', { name: 'Rename' }).click()
+  await sender.getByLabel('Trip name').fill('Shared commute')
+  await sender.getByRole('button', { name: 'Save name' }).click()
+  await sender.getByRole('button', { name: 'Copy editable link' }).click()
+  await expect(sender.getByRole('status').filter({ hasText: /Editable trip link copied/ })).toBeVisible()
+  const editableLink = await sender.evaluate(() => (window as Window & { copiedEditableTrip: string }).copiedEditableTrip)
+  await senderContext.close()
+
+  const recipientContext = await browser.newContext()
+  const recipient = await recipientContext.newPage()
+  await recipient.goto(editableLink)
+  const preview = recipient.getByRole('dialog', { name: 'Preview imported trip' })
+  await expect(preview).toContainText('Shared commute')
+  await expect(preview).toContainText('Home → Cafe → Office')
+  await expect(preview).toContainText('US customary')
+  await expect(recipient.getByLabel('Stop 1 name')).toHaveValue('')
+  await preview.getByRole('button', { name: 'Add as new trip' }).click()
+
+  await expect(recipient.getByLabel('Stop 1 name')).toHaveValue('Home')
+  await expect(recipient.getByLabel('Distance from Home to Cafe in miles')).toHaveValue('6.213712')
+  await expect(recipient.getByLabel('Asha rode from Cafe to Office')).toBeChecked()
+  await expect(recipient.getByRole('button', { name: 'Share summary' })).toBeVisible()
+  await recipient.getByRole('button', { name: 'Trips' }).click()
+  await expect(recipient.getByRole('article', { name: 'Shared commute' })).toBeVisible()
+  await expect(recipient.getByRole('article', { name: 'Untitled trip' })).toBeVisible()
+
+  const fileInput = recipient.locator('input[type=file]')
+  await fileInput.setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{broken') })
+  await expect(recipient.getByRole('alert')).toContainText('not a valid Petrol Share trip')
+  await recipientContext.close()
+})
+
 test('manages independent saved trips, templates, and recently deleted recovery', async ({ page }) => {
   await page.getByLabel('Stop 1 name').fill('Home')
   await page.getByLabel('Stop 2 name').fill('Office')

@@ -7,6 +7,7 @@ import {
   CircleAlert,
   ChevronDown,
   Copy,
+  Download,
   FolderOpen,
   Fuel,
   MapPin,
@@ -18,6 +19,7 @@ import {
   Share2,
   Sun,
   Trash2,
+  Upload,
   Users,
 } from 'lucide-react'
 import {
@@ -43,12 +45,14 @@ import { usePersistedTrip } from './app/usePersistedTrip'
 import { useThemePreference } from './app/useThemePreference'
 import { useTripEditor } from './app/useTripEditor'
 import { saveStoredTrip, type StoredTrip } from './persistence/tripStorage'
+import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip, type EditableTripImport } from './tripSharing'
 
 type ErrorMap = Record<string, string>
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 type EditorSection = 'route' | 'fuel' | 'people'
 type UndoRemoval = { draft: TripDraft; message: string }
 type TripDialog = { action: 'create' | 'rename' | 'delete'; trip?: StoredTrip } | null
+type ImportPreview = EditableTripImport & { source: 'link' | 'file' }
 
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
@@ -72,6 +76,8 @@ const styles: Record<string, string> = {
   'library': 'mx-auto mb-7 w-[min(100%-40px,1132px)] rounded-2xl border border-[#d7e3dc] bg-white p-5 shadow-[0_10px_32px_rgba(36,67,56,.08)] max-[560px]:w-[calc(100%-20px)] max-[560px]:p-4',
   'library-heading': 'mb-4 flex items-center justify-between gap-3 [&_h2]:m-0 [&_h2]:text-xl [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-sm [&_p]:text-[#6b7974]',
   'library-actions': 'flex flex-wrap gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#bcd5c8] [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#176c4d]',
+  'import-error': 'mt-3 rounded-lg border border-[#efc4bd] bg-[#fff0ee] px-3 py-2 text-sm font-semibold text-[#8f382f]',
+  'import-preview': 'mt-4 rounded-xl bg-[#f3f7f4] p-4 [&_dl]:m-0 [&_dl]:grid [&_dl]:grid-cols-[auto_1fr] [&_dl]:gap-x-4 [&_dl]:gap-y-2 [&_dt]:font-bold [&_dd]:m-0 [&_dd]:break-words',
   'trip-list': 'mt-4 grid gap-3',
   'trip-card': 'grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border border-[#dfe6e1] p-4 max-[650px]:grid-cols-1 [&_h3]:m-0 [&_h3]:text-base [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-xs [&_p]:text-[#697772]',
   'trip-card-active': 'border-[#52a37d] bg-[#f0f9f4]',
@@ -201,6 +207,8 @@ function App() {
   const [tripDialog, setTripDialog] = useState<TripDialog>(null)
   const [tripName, setTripName] = useState('')
   const [libraryMessage, setLibraryMessage] = useState('')
+  const [importError, setImportError] = useState('')
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [undoRemoval, setUndoRemoval] = useState<UndoRemoval | null>(null)
   const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
   const { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
@@ -208,6 +216,7 @@ function App() {
   const resetButtonRef = useRef<HTMLButtonElement>(null)
   const cancelResetRef = useRef<HTMLButtonElement>(null)
   const sectionButtonRefs = useRef<Partial<Record<EditorSection, HTMLButtonElement>>>({})
+  const linkImportChecked = useRef(false)
   const errors = useMemo(() => submitted ? validationErrors(draft) : {}, [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
@@ -248,6 +257,20 @@ function App() {
     const timeout = window.setTimeout(() => setUndoRemoval(null), 8000)
     return () => window.clearTimeout(timeout)
   }, [undoRemoval])
+
+  useEffect(() => {
+    if (!hydrated || linkImportChecked.current) return
+    linkImportChecked.current = true
+    try {
+      const imported = readEditableTripLink(window.location)
+      if (imported) setImportPreview({ ...imported, source: 'link' })
+    } catch (error) {
+      setLibraryOpen(true)
+      setImportError(error instanceof Error ? error.message : 'The editable trip link could not be opened.')
+    } finally {
+      if (window.location.hash.startsWith('#trip=')) history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+    }
+  }, [hydrated])
 
   function closeResetDialog() {
     setResetDialogOpen(false)
@@ -312,6 +335,63 @@ function App() {
     await saveStoredTrip(restored)
     setTrips((items) => items.map((item) => item.id === restored.id ? restored : item))
     setLibraryMessage(`${restored.name} restored.`)
+  }
+
+  function activeTrip(): StoredTrip {
+    return trips.find(({ id }) => id === activeTripId) ?? { id: activeTripId, name: 'Shared trip', kind: 'trip', draft, updatedAt: draft.updatedAt }
+  }
+
+  function editableTripJson(): string {
+    return serializeEditableTrip(draft, activeTrip().name, unitSystem)
+  }
+
+  async function copyEditableLink() {
+    setImportError('')
+    try {
+      await navigator.clipboard.writeText(createEditableTripLink(editableTripJson(), window.location.href))
+      setLibraryMessage('Editable trip link copied. Recipients can preview it before saving.')
+    } catch {
+      setImportError('The editable link could not be copied. Allow clipboard access and try again.')
+    }
+  }
+
+  function downloadEditableTrip() {
+    const blobUrl = URL.createObjectURL(new Blob([editableTripJson()], { type: 'application/json' }))
+    const anchor = document.createElement('a')
+    anchor.href = blobUrl
+    anchor.download = `${activeTrip().name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'trip'}.petrol-share.json`
+    anchor.click()
+    URL.revokeObjectURL(blobUrl)
+    setLibraryMessage('Editable trip file downloaded.')
+  }
+
+  async function chooseImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setImportError('')
+    try {
+      const imported = deserializeEditableTrip(await file.text())
+      setImportPreview({ ...imported, source: 'file' })
+    } catch (error) {
+      setImportError(error instanceof EditableTripImportError ? error.message : 'The selected file could not be read. Choose another Petrol Share trip file.')
+    }
+  }
+
+  async function confirmImport(action: 'add' | 'replace') {
+    if (!importPreview) return
+    if (action === 'add') {
+      await createTripFromDraft(importPreview.name, importPreview.draft)
+    } else {
+      const current = activeTrip()
+      const changed: StoredTrip = { ...current, name: importPreview.name, draft: importPreview.draft, updatedAt: importPreview.draft.updatedAt }
+      await selectTrip(changed)
+      setLibraryMessage(`${importPreview.name} replaced the current trip.`)
+    }
+    setUnitSystem(importPreview.unitSystem)
+    setSubmitted(false)
+    setOpenSections(new Set(['route', 'fuel', 'people']))
+    setImportPreview(null)
   }
 
   async function openLibraryTrip(trip: StoredTrip) {
@@ -431,7 +511,8 @@ function App() {
         {persistenceStatus === 'migrated' && <div className={classes("recovery-notice")} role="status"><Save /><span>Your previous draft was moved safely into Saved trips.</span></div>}
         {libraryOpen && <section className={classes("library")} aria-labelledby="trip-library-title">
           <div className={classes("library-heading")}><div><h2 id="trip-library-title">Saved trips</h2><p>Keep journeys separate or reuse a familiar route.</p></div><button className={classes("trips-button")} type="button" onClick={() => setLibraryOpen(false)}>Close</button></div>
-          <div className={classes("library-actions")}><button type="button" onClick={() => showTripDialog('create')}><Plus size={17} /> New trip</button></div>
+          <div className={classes("library-actions")}><button type="button" onClick={() => showTripDialog('create')}><Plus size={17} /> New trip</button><button type="button" onClick={() => void copyEditableLink()}><Copy size={17} /> Copy editable link</button><button type="button" onClick={downloadEditableTrip}><Download size={17} /> Download trip file</button><label className={classes("trips-button")}><Upload size={17} /> Import trip file<input className={classes("sr-only")} type="file" accept="application/json,.json" onChange={(event) => void chooseImportFile(event)} /></label></div>
+          {importError && <p className={classes("import-error")} role="alert">{importError}</p>}
           {libraryMessage && <p role="status">{libraryMessage}</p>}
           <div className={classes("trip-list")}>
             {trips.filter(({ deletedAt }) => !deletedAt).map((trip) => {
@@ -564,6 +645,7 @@ function App() {
       {undoRemoval && <div className={classes("undo-toast")} role="status" aria-live="polite"><span>{undoRemoval.message}</span><button type="button" onClick={undoLastRemoval}>Undo</button></div>}
       {resetDialogOpen && <div className={classes("dialog-backdrop")} onMouseDown={(event) => { if (event.target === event.currentTarget) closeResetDialog() }}><div className={classes("reset-dialog")} role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description" onKeyDown={(event) => { if (event.key === 'Escape') closeResetDialog() }}><h2 id="reset-dialog-title">Reset the complete trip?</h2><p id="reset-dialog-description">This deletes all stops, people, distances, assignments, and fuel settings from this device.</p><div className={classes("dialog-actions")}><button ref={cancelResetRef} className={classes("dialog-cancel")} type="button" onClick={closeResetDialog}>Cancel</button><button className={classes("dialog-confirm")} type="button" onClick={resetTrip}>Reset trip</button></div></div></div>}
       {tripDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="trip-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape') setTripDialog(null) }}><h2 id="trip-dialog-title">{tripDialog.action === 'create' ? 'Create a new trip' : tripDialog.action === 'rename' ? `Rename ${tripDialog.trip?.name}` : `Delete ${tripDialog.trip?.name}?`}</h2>{tripDialog.action === 'delete' ? <p>The trip will move to Recently deleted, where you can restore it later.</p> : <div className={classes("dialog-input")}><label htmlFor="trip-name">Trip name</label><input id="trip-name" autoFocus value={tripName} onChange={(event) => setTripName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void submitTripDialog() }} /></div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setTripDialog(null)}>Cancel</button><button className={classes(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>{tripDialog.action === 'create' ? 'Create trip' : tripDialog.action === 'rename' ? 'Save name' : 'Move to Recently deleted'}</button></div></div></div>}
+      {importPreview && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="import-dialog-title"><h2 id="import-dialog-title">Preview imported trip</h2><p>Review this trip before saving it on this device. Nothing local has changed yet.</p><div className={classes("import-preview")}><dl><dt>Name</dt><dd>{importPreview.name}</dd><dt>Route</dt><dd>{routeSummary(importPreview.draft)}</dd><dt>Stops</dt><dd>{importPreview.draft.stops.length}</dd><dt>Riders</dt><dd>{importPreview.draft.people.length}</dd><dt>Units</dt><dd>{importPreview.unitSystem === 'metric' ? 'Metric' : importPreview.unitSystem === 'us' ? 'US customary' : 'UK imperial'}</dd></dl></div><div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setImportPreview(null)}>Cancel</button><button className={classes("dialog-cancel")} type="button" onClick={() => void confirmImport('add')}>Add as new trip</button><button className={classes("dialog-confirm")} type="button" onClick={() => void confirmImport('replace')}>Replace current trip</button></div></div></div>}
       {result && !resultsVisible && <a className={classes("mobile-result-action")} href="#results">View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} /></a>}
       <footer>Made for fair journeys.</footer>
     </div>
