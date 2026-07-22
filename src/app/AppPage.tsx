@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowDown,
   ArrowRight,
-  ArrowUp,
   CircleAlert,
-  ChevronDown,
   Fuel,
-  MapPin,
-  Plus,
-  RotateCcw,
   Save,
-  Search,
-  Trash2,
-  Users,
 } from 'lucide-react'
 import {
   calculateTrip,
@@ -20,12 +11,8 @@ import {
   editableTripDraftSchema,
   formatCurrency,
   defaultUnitSystem,
-  distanceFromKm,
-  distanceToKm,
   economyFromKmpl,
   economyToKmpl,
-  priceFromPerLitre,
-  priceToPerLitre,
   unitLabels,
   type TripDraft,
   type UnitSystem,
@@ -37,9 +24,8 @@ import { useTheme } from './themeContext'
 import { useTripEditor } from './useTripEditor'
 import { saveStoredTrip, type StoredTrip } from '../persistence/tripStorage'
 import { loadVehiclePresets, saveVehiclePresets, type VehiclePreset } from '../persistence/vehiclePresetStorage'
-import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip, type EditableTripImport } from '../tripSharing'
-import { FieldError, IconButton } from './AppControls'
-import { cloneDraft, displayNumber, numberFromInput, recordId, routeSummary, validationErrors } from './tripDraftUtils'
+import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip } from '../tripSharing'
+import { cloneDraft, recordId, routeSummary, validationErrors } from './tripDraftUtils'
 import { classes } from './styles'
 import { useRouteLookup } from './useRouteLookup'
 import { useElementVisibility } from './useElementVisibility'
@@ -50,15 +36,13 @@ import { TripLibrary } from './components/TripLibrary'
 import { AssignmentPanel } from './components/AssignmentPanel'
 import { persistenceMessage as getPersistenceMessage, tripProgress, uniqueReturnStops, type EditorSection } from './appViewUtils'
 import { ResultsPanel } from './components/ResultsPanel'
-
-type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
-type UndoRemoval = { draft: TripDraft; message: string }
-type TripDialog = { action: 'create' | 'rename' | 'delete'; trip?: StoredTrip } | null
-type ImportPreview = EditableTripImport & { source: 'link' | 'file' }
-type VehicleDialog = { action: 'create' | 'edit' | 'delete'; preset?: VehiclePreset } | null
-
-const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
-
+import { RoutePanel } from './components/RoutePanel'
+import { FuelPanel } from './components/FuelPanel'
+import { PeoplePanel } from './components/PeoplePanel'
+import { ExpensesPanel } from './components/ExpensesPanel'
+import { MOBILE_ASSIGNMENTS_QUERY, OPEN_EDITOR_SECTIONS, PUBLIC_SITE_URL } from './constants'
+import type { ImportPreview, ShareStatus, TripDialog, VehicleDialog } from './types'
+import { useUndoRemoval } from './useUndoRemoval'
 
 export function AppPage() {
   const { themePreference, cycleTheme } = useTheme()
@@ -66,9 +50,9 @@ export function AppPage() {
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
   const [shareError, setShareError] = useState('')
   const [shareMessageCopied, setShareMessageCopied] = useState(false)
-  const mobileAssignments = useMediaQuery('(max-width: 560px)')
+  const mobileAssignments = useMediaQuery(MOBILE_ASSIGNMENTS_QUERY)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => defaultUnitSystem())
-  const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(['route', 'fuel', 'people']))
+  const [openSections, setOpenSections] = useState<Set<EditorSection>>(() => new Set(OPEN_EDITOR_SECTIONS))
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [tripDialog, setTripDialog] = useState<TripDialog>(null)
@@ -83,9 +67,9 @@ export function AppPage() {
   const [libraryMessage, setLibraryMessage] = useState('')
   const [importError, setImportError] = useState('')
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
-  const [undoRemoval, setUndoRemoval] = useState<UndoRemoval | null>(null)
   const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
   const { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
+  const { undoRemoval, clearUndoRemoval, rememberRemoval, undoLastRemoval } = useUndoRemoval(setDraft)
   const resultsRef = useRef<HTMLElement>(null)
   const resetButtonRef = useRef<HTMLButtonElement>(null)
   const cancelResetRef = useRef<HTMLButtonElement>(null)
@@ -105,12 +89,6 @@ export function AppPage() {
     if (!resetDialogOpen) return
     cancelResetRef.current?.focus()
   }, [resetDialogOpen])
-
-  useEffect(() => {
-    if (!undoRemoval) return
-    const timeout = window.setTimeout(() => setUndoRemoval(null), 8000)
-    return () => window.clearTimeout(timeout)
-  }, [undoRemoval])
 
   useEffect(() => {
     if (!hydrated || linkImportChecked.current) return
@@ -134,8 +112,8 @@ export function AppPage() {
   function resetTrip() {
     setDraft(createBlankTripDraft())
     setSubmitted(false)
-    setUndoRemoval(null)
-    setOpenSections(new Set(['route', 'fuel', 'people']))
+    clearUndoRemoval()
+    setOpenSections(new Set(OPEN_EDITOR_SECTIONS))
     setResetDialogOpen(false)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="Stop 1 name"]')?.focus())
   }
@@ -191,7 +169,7 @@ export function AppPage() {
     const nextDraft = template ? cloneDraft(source, true) : source
     const record: StoredTrip = { id: recordId(), name, kind: 'trip', draft: nextDraft, updatedAt: nextDraft.updatedAt }
     await selectTrip(record)
-    setOpenSections(new Set(['route', 'fuel', 'people']))
+    setOpenSections(new Set(OPEN_EDITOR_SECTIONS))
     setLibraryMessage(template ? `Created ${name} from a template. Add riders and adjust it for this journey.` : `Created ${name}.`)
   }
 
@@ -287,7 +265,7 @@ export function AppPage() {
     }
     setUnitSystem(importPreview.unitSystem)
     setSubmitted(false)
-    setOpenSections(new Set(['route', 'fuel', 'people']))
+    setOpenSections(new Set(OPEN_EDITOR_SECTIONS))
     setImportPreview(null)
   }
 
@@ -295,18 +273,18 @@ export function AppPage() {
     if (trip.kind === 'template') await createTripFromDraft(`Trip from ${trip.name}`, trip.draft, true)
     else {
       await selectTrip(trip)
-      setOpenSections(editableTripDraftSchema.safeParse(trip.draft).success ? new Set() : new Set(['route', 'fuel', 'people']))
+      setOpenSections(editableTripDraftSchema.safeParse(trip.draft).success ? new Set() : new Set(OPEN_EDITOR_SECTIONS))
       setLibraryMessage(`Opened ${trip.name}.`)
     }
   }
 
   function removeStop(stopId: string, index: number) {
-    setUndoRemoval({ draft, message: `Stop ${index + 1} removed.` })
+    rememberRemoval(draft, `Stop ${index + 1} removed.`)
     changeStops(draft.stops.filter(({ id }) => id !== stopId))
   }
 
   function removePerson(personId: string, name: string, index: number) {
-    setUndoRemoval({ draft, message: `${name || `Person ${index + 1}`} removed.` })
+    rememberRemoval(draft, `${name || `Person ${index + 1}`} removed.`)
     update({ ...draft, people: draft.people.filter(({ id }) => id !== personId), expenses: (draft.expenses ?? []).map((expense) => ({ ...expense, personIds: expense.personIds.filter((id) => id !== personId) })) })
   }
 
@@ -316,12 +294,6 @@ export function AppPage() {
 
   function changeExpense(id: string, changes: Partial<NonNullable<TripDraft['expenses']>[number]>) {
     update({ ...draft, expenses: (draft.expenses ?? []).map((expense) => expense.id === id ? { ...expense, ...changes } : expense) })
-  }
-
-  function undoLastRemoval() {
-    if (!undoRemoval) return
-    setDraft({ ...undoRemoval.draft, updatedAt: new Date().toISOString() })
-    setUndoRemoval(null)
   }
 
   function revealResults() {
@@ -377,7 +349,6 @@ export function AppPage() {
   }
 
   const persistenceMessage = getPersistenceMessage(persistenceStatus)
-  const totalDistance = draft.legs.reduce((sum, leg) => sum + (leg.distanceKm ?? 0), 0)
   const { routeComplete, fuelComplete, peopleComplete, hasProgress } = tripProgress(draft)
   const returnStops = uniqueReturnStops(draft)
 
@@ -393,103 +364,10 @@ export function AppPage() {
 
         <div className={classes("editor-grid")}>
           <div className={classes("editor-column")}>
-            <section className={classes(`panel${openSections.has('route') ? '' : ' panel-collapsed'}`)} aria-labelledby="route-title">
-              {!openSections.has('route') ? <button ref={(node) => { if (node) sectionButtonRefs.current.route = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="route-content" onClick={() => openSection('route', `stop-${draft.stops[0].id}`)}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>{draft.stops.length} stops · {distanceFromKm(totalDistance, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance}</p></div><ChevronDown aria-hidden="true" /></button> : <>
-              <div className={classes("panel-heading")}><span className={classes("step")}>1</span><div><h2 id="route-title">Build your route</h2><p>Each stop is a distinct visit, even when its name repeats.</p></div></div>
-              <div id="route-content">
-              <ol className={classes("stops-list")}>
-                {draft.stops.map((stop, index) => {
-                  const errorId = `stop-${stop.id}-error`
-                  const error = errors[`stops.${index}.name`]
-                  return <li className={classes("stop-row")} key={stop.id}>
-                    <span className={classes("stop-index")} aria-hidden="true">{index + 1}</span>
-                    <div className={classes("field-grow")}>
-                      <label className={classes("row-label")} htmlFor={`stop-${stop.id}`}>Stop {index + 1}</label>
-                      <div className={classes("input-with-icon")}><MapPin size={18} /><input id={`stop-${stop.id}`} aria-label={`Stop ${index + 1} name`} value={stop.name} placeholder={index === 0 ? 'Starting point' : 'Next stop'} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => changeStops(draft.stops.map((item) => item.id === stop.id ? { ...item, name: event.target.value } : item))} /></div>
-                      <FieldError id={errorId} message={error} />
-                    </div>
-                    <div className={classes("row-actions")}>
-                      <IconButton label={`Move stop ${index + 1} up`} disabled={index === 0} onClick={() => moveStop(index, -1)}><ArrowUp /></IconButton>
-                      <IconButton label={`Move stop ${index + 1} down`} disabled={index === draft.stops.length - 1} onClick={() => moveStop(index, 1)}><ArrowDown /></IconButton>
-                      <IconButton label={`Remove stop ${index + 1}`} destructive disabled={draft.stops.length <= 2} onClick={() => removeStop(stop.id, index)}><Trash2 /></IconButton>
-                    </div>
-                  </li>
-                })}
-              </ol>
-              <button className={classes("secondary-button full-button")} type="button" onClick={addStop}><Plus size={18} /> Add another stop</button>
-              {draft.stops.length > 1 && draft.stops.every(({ name }) => name.trim()) && draft.stops[0].name.trim().toLocaleLowerCase() !== draft.stops.at(-1)?.name.trim().toLocaleLowerCase() && <button className={classes("secondary-button full-button")} type="button" onClick={makeRoundTrip}><RotateCcw size={18} /> Make round trip</button>}
-              {returnStops.length > 0 && <div className={classes("return-stops")} aria-label="Return to an earlier stop"><span>Going back?</span><div>{returnStops.map((stop) => <button key={stop.id} className={classes("return-stop-button")} type="button" onClick={() => returnToStop(stop)}><RotateCcw size={15} /> Return to {stop.name.trim()}</button>)}</div><p>The known distance is reused when available, and can still be changed.</p></div>}
-
-              <div className={classes("subsection")}>
-                <h3>Leg distances</h3>
-                <div className={classes("unit-picker")} aria-label="Display units">{([['metric', 'Metric'], ['us', 'US customary'], ['imperial', 'UK imperial']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={unitSystem === value} onClick={() => setUnitSystem(value)}>{label}</button>)}</div>
-                <div className={classes("leg-list")}>
-                  {draft.legs.map((leg, index) => {
-                    const error = errors[`legs.${index}.distanceKm`]
-                    const errorId = `leg-${leg.id}-error`
-                    return <div className={classes("leg-row")} key={leg.id}>
-                      <div className={classes("leg-name")}><span title={stopsById.get(leg.fromStopId)}>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={16} /><span title={stopsById.get(leg.toStopId)}>{stopsById.get(leg.toStopId)}</span></div>
-                      <div><label className={classes("row-label")} htmlFor={`leg-${leg.id}`}>Distance ({units.distance})</label><div className={classes("unit-input")}><input id={`leg-${leg.id}`} aria-label={`Distance from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)} in ${units.distanceLong}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={displayNumber(leg.distanceKm, (value) => distanceFromKm(value, unitSystem))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => reuseLegDistanceForBlankReverse(leg.id)} onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: value === null ? null : distanceToKm(value, unitSystem), distanceSource: 'manual' } : item) }) }} /><span>{units.distance}</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource ?? 'manual'}`)} title={leg.distanceSource === 'reused' ? 'Reused from the reverse leg' : undefined}>{leg.distanceSource === 'reused' ? 'Auto-filled' : leg.distanceSource === 'lookup' ? 'Looked up' : 'Manual'}</span>}<button className={classes("lookup-button")} type="button" onClick={() => showMapDialog(leg.id)}><Search /> Look up road distance</button><FieldError id={errorId} message={error} /></div>
-                    </div>
-                  })}
-                </div>
-              </div>
-              {routeComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('route', 'fuel')}>Done with route <ArrowRight size={18} /></button>}
-              </div></>}
-            </section>
-
-            <section className={classes(`panel${openSections.has('fuel') ? '' : ' panel-collapsed'}`)} aria-labelledby="fuel-title">
-              {!openSections.has('fuel') ? <button ref={(node) => { if (node) sectionButtonRefs.current.fuel = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="fuel-content" onClick={() => openSection('fuel', 'economy')}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>{displayNumber(draft.fuelSettings.fuelEconomyKmpl, (value) => economyFromKmpl(value, unitSystem))} {units.economy} · {formatCurrency(priceFromPerLitre(draft.fuelSettings.fuelPricePerLitre ?? 0, unitSystem), draft.fuelSettings.currency)}/{units.volume}</p></div><ChevronDown aria-hidden="true" /></button> : <>
-              <div className={classes("panel-heading")}><span className={classes("step")}>2</span><div><h2 id="fuel-title">Fuel details</h2><p>Use the average economy for the complete journey.</p></div></div>
-              <div id="fuel-content" className={classes("fuel-fields")}>
-                <div className={classes("form-field")}><label htmlFor="economy">Fuel economy ({units.economy})</label><div className={classes("unit-input")}><input id="economy" aria-label="Fuel economy" type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 15" value={displayNumber(draft.fuelSettings.fuelEconomyKmpl, (value) => economyFromKmpl(value, unitSystem))} aria-invalid={Boolean(errors['fuelSettings.fuelEconomyKmpl'])} aria-describedby="economy-error" onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelEconomyKmpl: value === null ? null : economyToKmpl(value, unitSystem) } }) }} /><span>{units.economy}</span></div><FieldError id="economy-error" message={errors['fuelSettings.fuelEconomyKmpl']} /></div>
-                <div className={classes("form-field")}><label htmlFor="fuel-price">Price per {units.priceVolume}</label><input id="fuel-price" aria-label={unitSystem === 'metric' ? 'Price per litre' : `Price per ${units.priceVolume}`} type="number" inputMode="decimal" min="0" step="any" placeholder="e.g. 105" value={displayNumber(draft.fuelSettings.fuelPricePerLitre, (value) => priceFromPerLitre(value, unitSystem))} aria-invalid={Boolean(errors['fuelSettings.fuelPricePerLitre'])} aria-describedby="price-error" onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelPricePerLitre: value === null ? null : priceToPerLitre(value, unitSystem) } }) }} /><FieldError id="price-error" message={errors['fuelSettings.fuelPricePerLitre']} /></div>
-                <div className={classes("form-field currency-field")}><label htmlFor="currency">Currency</label><input id="currency" list="currency-options" role="combobox" autoComplete="off" value={draft.fuelSettings.currency} aria-invalid={Boolean(errors['fuelSettings.currency'])} aria-describedby="currency-help currency-error" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, currency: event.target.value.toUpperCase() } })} /><datalist id="currency-options">{currencies.map(({ code, symbol, name }) => <option key={code} value={code}>{symbol} · {code} · {name}</option>)}</datalist><small id="currency-help">Search by symbol, code, or currency name.</small><FieldError id="currency-error" message={errors['fuelSettings.currency']} /></div>
-                <div className={classes("form-field")}><label htmlFor="fuel-type">Fuel type (optional)</label><input id="fuel-type" value={draft.fuelSettings.fuelType ?? ''} placeholder="e.g. Petrol" onChange={(event) => update({ ...draft, fuelSettings: { ...draft.fuelSettings, fuelType: event.target.value } })} /></div>
-              </div>
-              {fuelComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('fuel', 'people')}>Done with fuel details <ArrowRight size={18} /></button>}
-              </>}
-            </section>
-
-            <section className={classes(`panel${openSections.has('people') ? '' : ' panel-collapsed'}`)} aria-labelledby="people-title">
-              {!openSections.has('people') ? <button ref={(node) => { if (node) sectionButtonRefs.current.people = node }} className={classes("section-toggle")} type="button" aria-expanded="false" aria-controls="people-content" onClick={() => openSection('people', `person-${draft.people[0]?.id}`)}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>{draft.people.length} {draft.people.length === 1 ? 'rider' : 'riders'}</p></div><ChevronDown aria-hidden="true" /></button> : <>
-              <div className={classes("panel-heading")}><span className={classes("step")}>3</span><div><h2 id="people-title">Who was riding?</h2><p>Add everyone who should share the fuel cost. <strong>Include the driver if they share the cost.</strong></p></div></div>
-              <div id="people-content" className={classes("people-list")}>
-                {draft.people.map((person, index) => {
-                  const error = errors[`people.${index}.name`]
-                  const errorId = `person-${person.id}-error`
-                  return <div className={classes("person-row")} key={person.id}><div className={classes("field-grow")}><label className={classes("row-label")} htmlFor={`person-${person.id}`}>Passenger {index + 1}</label><div className={classes("input-with-icon")}><Users size={18} /><input id={`person-${person.id}`} aria-label={`Person ${index + 1} name`} placeholder="Person's name" value={person.name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => update({ ...draft, people: draft.people.map((item) => item.id === person.id ? { ...item, name: event.target.value } : item) })} /></div><FieldError id={errorId} message={error} /></div><IconButton label={`Remove ${person.name || `person ${index + 1}`}`} destructive onClick={() => removePerson(person.id, person.name, index)}><Trash2 /></IconButton></div>
-                })}
-              </div>
-              <button className={classes("secondary-button full-button")} type="button" onClick={addPerson}><Plus size={18} /> Add person</button>
-              {submitted && errors.people && <div className={classes("notice error-notice")} role="alert"><CircleAlert />{errors.people}</div>}
-              {peopleComplete && <button className={classes("done-button")} type="button" onClick={() => closeSection('people')}>Done adding riders <Users size={18} /></button>}
-              </>}
-            </section>
-            <section className={classes("panel")} aria-labelledby="expenses-title">
-              <div className={classes("panel-heading")}><span className={classes("step")}>4</span><div><h2 id="expenses-title">Additional expenses</h2><p>Add tolls, parking, or other fixed journey costs and choose who shares them.</p></div></div>
-              <div className={classes("expense-list")}>
-                {(draft.expenses ?? []).map((expense, index) => {
-                  const amountError = errors[`expenses.${index}.amount`]
-                  const nameError = errors[`expenses.${index}.name`]
-                  const assignmentError = errors[`expenses.${index}.personIds`] ?? errors[`expenses.${index}.legId`]
-                  return <article className={classes("expense-row")} key={expense.id} aria-label={expense.name || `Expense ${index + 1}`}>
-                    <div className={classes("expense-grid")}>
-                      <div className={classes("form-field")}><label htmlFor={`expense-name-${expense.id}`}>Expense name</label><input id={`expense-name-${expense.id}`} aria-label={`Expense ${index + 1} name`} placeholder="e.g. Toll or parking" value={expense.name} aria-invalid={Boolean(nameError)} onChange={(event) => changeExpense(expense.id, { name: event.target.value })} /><FieldError id={`expense-name-${expense.id}-error`} message={nameError} /></div>
-                      <div className={classes("form-field")}><label htmlFor={`expense-amount-${expense.id}`}>Amount</label><input id={`expense-amount-${expense.id}`} aria-label={`${expense.name || `Expense ${index + 1}`} amount`} type="number" inputMode="decimal" min="0" step="any" value={expense.amount ?? ''} aria-invalid={Boolean(amountError)} onChange={(event) => changeExpense(expense.id, { amount: numberFromInput(event.target.value) })} /><FieldError id={`expense-amount-${expense.id}-error`} message={amountError} /></div>
-                      <IconButton label={`Remove ${expense.name || `expense ${index + 1}`}`} destructive onClick={() => update({ ...draft, expenses: (draft.expenses ?? []).filter(({ id }) => id !== expense.id) })}><Trash2 /></IconButton>
-                    </div>
-                    <div className={classes("expense-scope")} role="radiogroup" aria-label={`${expense.name || `Expense ${index + 1}`} applies to`}>
-                      {([['journey', 'Whole journey'], ['leg', 'A particular leg'], ['people', 'Selected riders']] as const).map(([scope, label]) => <label key={scope}><input type="radio" name={`expense-scope-${expense.id}`} checked={expense.scope === scope} onChange={() => changeExpense(expense.id, { scope })} />{label}</label>)}
-                    </div>
-                    {expense.scope === 'leg' && <div className={classes("form-field")}><label htmlFor={`expense-leg-${expense.id}`}>Journey leg</label><select id={`expense-leg-${expense.id}`} aria-label={`${expense.name || `Expense ${index + 1}`} journey leg`} value={expense.legId ?? ''} aria-invalid={Boolean(assignmentError)} onChange={(event) => changeExpense(expense.id, { legId: event.target.value || undefined })}><option value="">Choose a leg</option>{draft.legs.map((leg) => <option key={leg.id} value={leg.id}>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</option>)}</select></div>}
-                    {expense.scope === 'people' && <div><span className={classes("row-label")}>Riders sharing this expense</span><div className={classes("expense-people")}>{draft.people.map((person) => <label key={person.id}><input type="checkbox" aria-label={`${person.name || 'Unnamed person'} shares ${expense.name || `expense ${index + 1}`}`} checked={expense.personIds.includes(person.id)} onChange={(event) => changeExpense(expense.id, { personIds: event.target.checked ? [...new Set([...expense.personIds, person.id])] : expense.personIds.filter((id) => id !== person.id) })} />{person.name || 'Unnamed'}</label>)}</div></div>}
-                    <FieldError id={`expense-assignment-${expense.id}-error`} message={assignmentError} />
-                  </article>
-                })}
-              </div>
-              <button className={classes("secondary-button full-button")} type="button" onClick={addExpense}><Plus size={18} /> Add expense</button>
-            </section>
+            <RoutePanel draft={draft} errors={errors} stopsById={stopsById} returnStops={returnStops} unitSystem={unitSystem} units={units} open={openSections.has('route')} complete={routeComplete} buttonRef={(node) => { if (node) sectionButtonRefs.current.route = node }} onOpen={() => openSection('route', `stop-${draft.stops[0].id}`)} onDone={() => closeSection('route', 'fuel')} onAddStop={addStop} onChangeStops={changeStops} onMakeRoundTrip={makeRoundTrip} onMoveStop={moveStop} onRemoveStop={removeStop} onReturnToStop={returnToStop} onShowMapDialog={showMapDialog} onUnitSystemChange={setUnitSystem} onUpdate={update} onReuseReverseDistance={reuseLegDistanceForBlankReverse} />
+            <FuelPanel currencies={currencies} draft={draft} errors={errors} open={openSections.has('fuel')} complete={fuelComplete} unitSystem={unitSystem} units={units} buttonRef={(node) => { if (node) sectionButtonRefs.current.fuel = node }} onOpen={() => openSection('fuel', 'economy')} onDone={() => closeSection('fuel', 'people')} onUpdate={update} />
+            <PeoplePanel draft={draft} errors={errors} open={openSections.has('people')} complete={peopleComplete} submitted={submitted} buttonRef={(node) => { if (node) sectionButtonRefs.current.people = node }} onOpen={() => openSection('people', `person-${draft.people[0]?.id}`)} onDone={() => closeSection('people')} onAdd={addPerson} onRemove={removePerson} onUpdate={update} />
+            <ExpensesPanel draft={draft} errors={errors} stopsById={stopsById} onChange={changeExpense} onAdd={addExpense} onUpdate={update} />
           </div>
 
           <aside className={classes("results-column")}>
