@@ -172,10 +172,10 @@ html[data-theme="dark"] .assignment-target:active { background: #29483b; }
 html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
 
 /* Semantic surfaces shared by editor cards, libraries, dialogs, and controls. */
-.expense-row, .assignment-card, .return-stops, .leg-row, .import-preview, .map-attribution { background: var(--color-elevated); }
+.expense-row, .assignment-card, .return-stops, .leg-row, .route-overview, .import-preview, .map-attribution { background: var(--color-elevated); }
 .expense-row, .assignment-card, .preset-row, .trip-card, .suggestion-list label { border-color: var(--color-border); }
 .expense-scope label, .expense-people label, .assignment-chip, .select-all-button,
-.return-stop-button, .lookup-button, .dialog-cancel { background: var(--color-panel); border-color: var(--color-border); color: var(--color-text); }
+.return-stop-button, .lookup-button, .copy-button, .copy-assignments-button, .dialog-cancel { background: var(--color-panel); border-color: var(--color-border); color: var(--color-text); }
 .expense-scope label:has(input:checked), .expense-people label:has(input:checked),
 .assignment-chip:has(input:checked), .suggestion-list label:has(input:checked),
 .unit-picker button[aria-pressed="true"], .trip-card-active { background: var(--color-selected); border-color: var(--color-selected-border); color: var(--color-accent); }

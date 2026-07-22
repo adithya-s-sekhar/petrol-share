@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, Users } from 'lucide-react'
+import { ArrowDown, ArrowRight, Copy, Users } from 'lucide-react'
 import type { TripDraft } from '../../../domain'
 import { classes } from '../../styles'
 
@@ -8,9 +8,10 @@ type Props = {
   stopsById: Map<string, string>
   onSetAssignment: (personId: string, legId: string, assigned: boolean) => void
   onSetAllAssignments: (legId: string, assigned: boolean) => void
+  onCopyPreviousAssignments: (legId: string) => void
 }
 
-export function AssignmentPanel({ draft, mobile, stopsById, onSetAssignment, onSetAllAssignments }: Props) {
+export function AssignmentPanel({ draft, mobile, stopsById, onSetAssignment, onSetAllAssignments, onCopyPreviousAssignments }: Props) {
   return (
     <section id="assignments" className={classes('panel assignment-panel')} aria-labelledby="assignment-title">
       <div className={classes('panel-heading compact')}>
@@ -33,7 +34,7 @@ export function AssignmentPanel({ draft, mobile, stopsById, onSetAssignment, onS
                 <thead>
                   <tr>
                     <th scope="col">Passenger</th>
-                    {draft.legs.map((leg) => {
+                    {draft.legs.map((leg, index) => {
                       const from = stopsById.get(leg.fromStopId)
                       const to = stopsById.get(leg.toStopId)
                       return (
@@ -41,6 +42,7 @@ export function AssignmentPanel({ draft, mobile, stopsById, onSetAssignment, onS
                           <span>{from}</span>
                           <ArrowRight size={16} />
                           <span>{to}</span>
+                          {index > 0 && <button className={classes('copy-assignments-button')} type="button" aria-label={`Copy rider assignments from previous leg to ${from} to ${to}`} onClick={() => onCopyPreviousAssignments(leg.id)}><Copy /><span className={classes('sr-only')}>Copy previous riders</span></button>}
                         </th>
                       )
                     })}
@@ -71,7 +73,7 @@ export function AssignmentPanel({ draft, mobile, stopsById, onSetAssignment, onS
           )}
           {mobile && (
             <div className={classes('assignment-cards')}>
-              {draft.legs.map((leg) => {
+              {draft.legs.map((leg, index) => {
                 const from = stopsById.get(leg.fromStopId)
                 const to = stopsById.get(leg.toStopId)
                 const allAssigned = draft.people.every((person) => person.assignedLegIds.includes(leg.id))
@@ -87,6 +89,7 @@ export function AssignmentPanel({ draft, mobile, stopsById, onSetAssignment, onS
                         {allAssigned ? 'Clear all' : 'Select all'}
                       </button>
                     </div>
+                    {index > 0 && <button className={classes('copy-button')} type="button" onClick={() => onCopyPreviousAssignments(leg.id)}><Copy /> Copy riders from previous leg</button>}
                     <div className={classes('assignment-chip-list')}>
                       {draft.people.map((person) => {
                         const label = `${person.name || 'Unnamed person'} rode from ${from} to ${to}`

@@ -5,6 +5,49 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('shows an accessible route overview and copies repetitive leg details independently', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Cafe')
+  await page.getByRole('button', { name: 'Add another stop' }).click()
+  await page.getByLabel('Stop 3 name').fill('Office')
+  await page.getByLabel('Distance from Home to Cafe in kilometres').fill('12.5')
+
+  const overview = page.getByRole('region', { name: 'Route overview' })
+  await expect(overview).toContainText('Home')
+  await expect(overview).toContainText('12.5 km')
+  await expect(overview).toContainText('Stop 1: Home; next leg 12.5 km')
+
+  await page.getByRole('button', { name: 'Copy previous distance' }).click()
+  const copiedDistance = page.getByLabel('Distance from Cafe to Office in kilometres')
+  await expect(copiedDistance).toHaveValue('12.5')
+  await expect(page.getByText('Copied', { exact: true })).toBeVisible()
+  await copiedDistance.fill('18')
+  await expect(page.getByLabel('Distance from Home to Cafe in kilometres')).toHaveValue('12.5')
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(copiedDistance).toHaveValue('')
+
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByLabel('Asha rode from Home to Cafe').check()
+  await page.getByRole('button', { name: 'Copy riders from previous leg' }).click()
+  await expect(page.getByLabel('Asha rode from Cafe to Office')).toBeChecked()
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(page.getByLabel('Asha rode from Cafe to Office')).not.toBeChecked()
+  await page.getByRole('button', { name: 'Copy riders from previous leg' }).click()
+  await page.getByLabel('Asha rode from Cafe to Office').uncheck()
+  await expect(page.getByLabel('Asha rode from Home to Cafe')).toBeChecked()
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(overview).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  }
+})
+
 test('keeps the full first-visit hero stable and compacts restored trips across themes and layouts', async ({ page }) => {
   test.setTimeout(90_000)
 

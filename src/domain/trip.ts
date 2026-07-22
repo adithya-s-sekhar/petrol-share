@@ -12,7 +12,7 @@ export interface Leg {
   fromStopId: TripId
   toStopId: TripId
   distanceKm: number | null
-  distanceSource?: 'manual' | 'reused' | 'lookup'
+  distanceSource?: 'manual' | 'reused' | 'lookup' | 'copied'
 }
 
 export interface Person {
