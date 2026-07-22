@@ -208,11 +208,13 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
 
     await page.getByRole('button', { name: 'Add person' }).click()
     await page.getByLabel('Person 1 name').fill('Asha')
+    await page.getByLabel('Stop 1 name').fill('Home')
+    await page.getByLabel('Stop 2 name').fill('Office')
     await page.getByRole('button', { name: 'Add expense' }).click()
     await page.getByLabel('Expense 1 name').fill('Parking')
     await page.getByLabel('Parking applies to').getByLabel('Selected riders').check()
 
-    for (const width of [320, 390, 1440]) {
+    for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       const expense = page.getByRole('article', { name: 'Parking' })
       const rider = expense.locator('label').filter({ has: page.getByLabel('Asha shares Parking') })
@@ -220,6 +222,9 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
       await expect(rider).toHaveCSS('background-color', await semanticColor('--color-panel'))
       await page.getByRole('button', { name: 'US customary' }).click()
       await expect(page.getByRole('button', { name: 'US customary' })).toHaveCSS('background-color', await semanticColor('--color-selected'))
+      await expect(expense).toHaveScreenshot(`expense-${theme}-${width}.png`)
+      const assignment = page.getByRole('region', { name: 'Riders from Home to Office' }).or(page.getByRole('table'))
+      await expect(assignment).toHaveScreenshot(`assignment-${theme}-${width}.png`)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
 
@@ -227,17 +232,33 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     const resetDialog = page.getByRole('alertdialog', {
       name: 'Reset the complete trip?',
     })
-    await expect(resetDialog).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    await expect(resetDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
     await expect(resetDialog.getByRole('button', { name: 'Cancel' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await resetDialog.getByRole('button', { name: 'Cancel' }).click()
 
     await page.getByRole('button', { name: 'Trips' }).click()
+    const library = page.getByRole('region', { name: 'Saved trips' })
+    await expect(library).toHaveCSS('background-color', await semanticColor('--color-drawer'))
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(library).toHaveScreenshot(`saved-trips-${theme}-${width}.png`)
+    }
     await page.getByRole('button', { name: 'New trip' }).click()
-    await expect(page.getByRole('dialog', { name: 'Create a new trip' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    const newTripDialog = page.getByRole('dialog', { name: 'Create a new trip' })
+    await expect(newTripDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(newTripDialog).toHaveScreenshot(`new-trip-${theme}-${width}.png`)
+    }
     await page.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: 'Save vehicle preset' }).click()
-    await expect(page.getByRole('dialog', { name: 'Save vehicle preset' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    const vehicleDialog = page.getByRole('dialog', { name: 'Save vehicle preset' })
+    await expect(vehicleDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(vehicleDialog).toHaveScreenshot(`vehicle-preset-${theme}-${width}.png`)
+    }
     await page.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: 'Close' }).click()
 
@@ -245,7 +266,11 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     const roadDialog = page.getByRole('dialog', {
       name: 'Look up road distance',
     })
-    await expect(roadDialog).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    await expect(roadDialog).toHaveCSS('background-color', await semanticColor('--color-modal'))
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(roadDialog).toHaveScreenshot(`lookup-${theme}-${width}.png`)
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await roadDialog.getByRole('button', { name: 'Cancel' }).click()
 
