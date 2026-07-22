@@ -5,6 +5,12 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('loads the bundled Inter font', async ({ page }) => {
+  await expect.poll(() => page.evaluate(() => document.fonts.check('16px "Inter Variable"'))).toBe(true)
+  await expect(page.locator('html')).toHaveCSS('font-family', /Inter Variable/)
+  expect(await page.evaluate(() => performance.getEntriesByType('resource').some(({ name }) => name.includes('inter-latin-wght-normal') && name.endsWith('.woff2')))).toBe(true)
+})
+
 test('shows the Codex credit across themes and layouts', async ({ page }, testInfo) => {
   const footer = page.locator('footer')
   const credit = footer.getByRole('link', { name: 'Made with Codex' })
