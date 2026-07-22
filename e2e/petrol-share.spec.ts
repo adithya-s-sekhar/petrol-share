@@ -5,6 +5,47 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('adds, assigns, edits, persists, and removes additional expenses', async ({ page }) => {
+  test.setTimeout(60_000)
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('10')
+  await page.getByLabel('Fuel economy').fill('10')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByLabel('Asha rode from Home to Office').check()
+
+  await page.getByRole('button', { name: 'Add expense' }).evaluate((button: HTMLButtonElement) => button.click())
+  await page.getByLabel('Expense 1 name').fill('Parking')
+  await page.getByLabel('Parking amount').fill('50')
+  await page.getByLabel('Parking applies to').getByLabel('Selected riders').check()
+  await page.getByLabel('Asha shares Parking').evaluate((input: HTMLInputElement) => input.click())
+  await expect(page.getByText('Additional expenses').last()).toBeVisible()
+  await expect(page.locator('#results').getByText('₹150.00', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Fuel ₹100.00 + expenses ₹50.00', { exact: true })).toBeVisible()
+
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel('Expense 1 name')).toHaveValue('Parking')
+  await page.getByLabel('Parking amount').fill('60')
+  await expect(page.locator('#results').getByText('₹160.00', { exact: true }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'Remove Parking' }).click()
+  await expect(page.getByLabel('Expense 1 name')).toHaveCount(0)
+})
+
+test('keeps additional-expense controls within a mobile viewport after scope changes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByRole('button', { name: 'Add expense' }).click()
+  await page.getByLabel('Expense 1 name').fill('Parking at the railway station')
+  await page.getByLabel('Parking at the railway station applies to').getByLabel('Selected riders').check()
+  const riderChoice = page.locator('label').filter({ has: page.getByLabel('Asha shares Parking at the railway station') })
+  await expect(riderChoice).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
 test('looks up an optional road distance and keeps it editable', async ({ page }) => {
   await page.route('https://nominatim.openstreetmap.org/search**', async (route) => {
     const query = new URL(route.request().url()).searchParams.get('q')

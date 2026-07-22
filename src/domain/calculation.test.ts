@@ -115,6 +115,31 @@ describe('calculateTrip', () => {
     expect(result.people.map(({ displayCost }) => displayCost)).toEqual([34, 33, 33])
   })
 
+  it('allocates journey, leg, and selected-rider expenses and reconciles the combined total', () => {
+    const result = calculateTrip(draft({
+      people: [
+        { id: 'p1', name: 'Alex', assignedLegIds: ['ab'] },
+        { id: 'p2', name: 'Blair', assignedLegIds: ['ab'] },
+        { id: 'p3', name: 'Casey', assignedLegIds: [] },
+      ],
+      expenses: [
+        { id: 'toll', name: 'Toll', amount: 10, scope: 'journey', personIds: [] },
+        { id: 'parking', name: 'Parking', amount: 5, scope: 'leg', legId: 'ab', personIds: [] },
+        { id: 'snacks', name: 'Snacks', amount: 2, scope: 'people', personIds: ['p1'] },
+      ],
+    }))
+
+    expect(result).toMatchObject({ totalFuelCost: 100, totalAdditionalCost: 17, totalCost: 117, unassignedExpenseIds: [] })
+    expect(result.people.map(({ displayCost }) => displayCost)).toEqual([57.84, 55.83, 3.33])
+    expect(result.people.reduce((sum, person) => sum + person.displayCost, 0)).toBe(117)
+  })
+
+  it('withholds shares when a leg-scoped expense has no riders', () => {
+    const result = calculateTrip(draft({ expenses: [{ id: 'parking', name: 'Parking', amount: 50, scope: 'leg', legId: 'ab', personIds: [] }], people: [{ id: 'p1', name: 'Alex', assignedLegIds: [] }] }))
+    expect(result.unassignedExpenseIds).toEqual(['parking'])
+    expect(result.people).toEqual([])
+  })
+
   it.each([
     ['JPY', 1, [1, 0, 0]],
     ['USD', 0.01, [0.01, 0, 0]],

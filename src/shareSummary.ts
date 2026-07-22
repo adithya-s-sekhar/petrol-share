@@ -66,8 +66,10 @@ export function createSummaryImage({ result, currency, unassignedLegNames, pageU
   write(context, `${result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km`, PADDING, 280)
   write(context, 'FUEL USED', CARD_WIDTH / 2 + 20, 230, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
   write(context, `${result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L`, CARD_WIDTH / 2 + 20, 280)
-  write(context, 'TOTAL FUEL COST', PADDING, 350, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
-  write(context, formatCurrency(result.totalCost, currency), PADDING, 420, { color: '#88dfb5', font: '500 58px Georgia, serif' })
+  write(context, 'FUEL + ADDITIONAL EXPENSES', PADDING, 335, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
+  write(context, `${formatCurrency(result.totalFuelCost, currency)} + ${formatCurrency(result.totalAdditionalCost, currency)}`, PADDING, 375, { color: '#c4d5cf', font: '700 28px Inter, system-ui, sans-serif' })
+  write(context, 'JOURNEY TOTAL', PADDING, 415, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
+  write(context, formatCurrency(result.totalCost, currency), CARD_WIDTH - PADDING, 420, { color: '#88dfb5', font: '500 58px Georgia, serif', align: 'right' })
 
   if (hasWarning) {
     context.fillStyle = 'rgba(235,171,51,.15)'
@@ -87,7 +89,7 @@ export function createSummaryImage({ result, currency, unassignedLegNames, pageU
       context.fill()
       write(context, person.personName.charAt(0).toUpperCase(), PADDING + 30, rowY + 64, { color: '#173f34', font: '800 30px Inter, system-ui, sans-serif', align: 'center' })
       write(context, person.personName, PADDING + 82, rowY + 48, { font: '700 29px Inter, system-ui, sans-serif' })
-      write(context, `${person.distanceKm.toLocaleString()} km · ${person.legIds.length} ${person.legIds.length === 1 ? 'leg' : 'legs'}`, PADDING + 82, rowY + 79, { color: '#9fb8af', font: '500 21px Inter, system-ui, sans-serif' })
+      write(context, `Fuel ${formatCurrency(person.fuelCost, currency)} + expenses ${formatCurrency(person.expenseCost, currency)}`, PADDING + 82, rowY + 79, { color: '#9fb8af', font: '500 21px Inter, system-ui, sans-serif' })
       write(context, formatCurrency(person.displayCost, currency), CARD_WIDTH - PADDING, rowY + 64, { color: '#95e2bb', font: '800 31px Inter, system-ui, sans-serif', align: 'right' })
     })
   }

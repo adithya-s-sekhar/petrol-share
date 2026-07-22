@@ -28,12 +28,25 @@ export interface FuelSettings {
   fuelType?: string
 }
 
+export type ExpenseScope = 'journey' | 'leg' | 'people'
+
+export interface AdditionalExpense {
+  id: TripId
+  name: string
+  amount: number | null
+  scope: ExpenseScope
+  legId?: TripId
+  personIds: TripId[]
+}
+
 export interface TripDraft {
   schemaVersion: typeof TRIP_SCHEMA_VERSION
   stops: Stop[]
   legs: Leg[]
   people: Person[]
   fuelSettings: FuelSettings
+  /** Optional for backwards compatibility with trips saved before expenses existed. */
+  expenses?: AdditionalExpense[]
   updatedAt: string
 }
 
@@ -44,14 +57,19 @@ export interface PersonResult {
   legIds: TripId[]
   rawCost: number
   displayCost: number
+  fuelCost: number
+  expenseCost: number
 }
 
 export interface TripResult {
   totalDistanceKm: number
   totalLitres: number
   totalCost: number
+  totalFuelCost: number
+  totalAdditionalCost: number
   people: PersonResult[]
   unassignedLegIds: TripId[]
+  unassignedExpenseIds: TripId[]
 }
 
 export interface DraftFactoryOptions {
@@ -94,6 +112,7 @@ export function createBlankTripDraft(options: DraftFactoryOptions = {}): TripDra
       currency: 'INR',
       fuelType: '',
     },
+    expenses: [],
     updatedAt: now().toISOString(),
   }
 }
