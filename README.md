@@ -104,6 +104,12 @@ The generated service worker precaches the built application shell and uses `ind
 
 Service-worker registration uses automatic updates. When a new deployment is detected, the new worker activates and takes control without an in-app prompt; a refresh or later launch shows the newest assets. Existing IndexedDB data is retained as long as it remains compatible with the current schema.
 
+## Optional map-assisted distances
+
+Every leg can still be entered and edited manually, including while offline. The **Look up road distance** action is optional and makes no background requests. In its dialog, **Find places** sends the two displayed search terms to the public Nominatim service; after the user chooses both suggestions, **Use road distance** sends only their coordinates to the public OSRM demo server. Those providers receive normal web-request metadata such as the user's IP address. OpenStreetMap attribution and this privacy disclosure are displayed before either request.
+
+Provider calls are isolated behind `src/maps/routeProvider.ts`, with no credentials in the client and mocked unit and Playwright coverage. The current public endpoints are suitable for modest demo traffic and can rate-limit or refuse requests. A higher-traffic deployment should implement the same interface using a server-side proxy and a provider plan whose credentials, acceptable-use limits, attribution, and privacy terms fit the deployment. Lookup failures and rate limits leave all existing trip data untouched so manual/offline operation remains available.
+
 ## GitHub Pages deployment
 
 The workflow in `.github/workflows/ci.yml` runs linting, tests, a root-base production build, and PWA artifact verification for every pull request and for pushes to `main`.
@@ -133,6 +139,6 @@ This release deliberately has:
 - no cloud sync or cross-device sharing;
 - no saved-trip history;
 - no import or export; and
-- no map or route-distance lookup.
+- no automatic or background map lookup; map-assisted distances are always opt-in.
 
 Enter route distances manually and keep the browser's site data if the current trip must remain available.
