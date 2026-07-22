@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBlankTripDraft, editableTripDraftSchema, type TripDraft } from '../../domain'
 import { loadTripLibrary, saveStoredTrip, type StoredTrip } from '../../persistence/tripStorage'
+import { hasTripProgress } from '../utils/appViewUtils'
 
 export type PersistenceStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'recovered' | 'migrated' | 'error'
 const AUTOSAVE_DELAY_MS = 500
@@ -10,6 +11,7 @@ export function usePersistedTrip(onRestoredCompleteTrip: () => void) {
   const [trips, setTrips] = useState<StoredTrip[]>([])
   const [activeTripId, setActiveTripId] = useState('')
   const [hydrated, setHydrated] = useState(false)
+  const [restoredWithProgress, setRestoredWithProgress] = useState(false)
   const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>('loading')
   const [retryRevision, setRetryRevision] = useState(0)
   const savedDraftRef = useRef<string | null>(null)
@@ -23,6 +25,7 @@ export function usePersistedTrip(onRestoredCompleteTrip: () => void) {
       setTrips(library.trips)
       setActiveTripId(current.id)
       setDraft(current.draft)
+      setRestoredWithProgress(hasTripProgress(current.draft))
       savedDraftRef.current = JSON.stringify(current.draft)
       if (editableTripDraftSchema.safeParse(current.draft).success) onRestoredCompleteTrip()
       setPersistenceStatus(library.recoveredInvalidData ? 'recovered' : library.migratedLegacyDraft ? 'migrated' : 'idle')
@@ -69,5 +72,5 @@ export function usePersistedTrip(onRestoredCompleteTrip: () => void) {
 
   function retryAutosave() { if (persistenceStatus === 'error') setRetryRevision((value) => value + 1) }
 
-  return { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, persistenceStatus, retryAutosave }
+  return { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, restoredWithProgress, persistenceStatus, retryAutosave }
 }

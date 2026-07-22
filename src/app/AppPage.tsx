@@ -53,8 +53,9 @@ export function AppPage() {
   const [libraryMessage, setLibraryMessage] = useState('')
   const [importError, setImportError] = useState('')
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
+  const [compactHeroOverride, setCompactHeroOverride] = useState(false)
   const closeRestoredSections = useCallback(() => setOpenSections(new Set()), [])
-  const { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
+  const { draft, setDraft, trips, setTrips, activeTripId, selectTrip, hydrated, restoredWithProgress, persistenceStatus, retryAutosave } = usePersistedTrip(closeRestoredSections)
   const { undoRemoval, clearUndoRemoval, rememberRemoval, undoLastRemoval } = useUndoRemoval(setDraft)
   const resultsRef = useRef<HTMLElement>(null)
   const resetButtonRef = useRef<HTMLButtonElement>(null)
@@ -64,7 +65,8 @@ export function AppPage() {
   const errors = useMemo(() => (submitted ? validationErrors(draft) : {}), [draft, submitted])
   const parsed = useMemo(() => editableTripDraftSchema.safeParse(draft), [draft])
   const result = parsed.success ? calculateTrip(parsed.data) : null
-  const { routeComplete, fuelComplete, peopleComplete, hasProgress } = tripProgress(draft)
+  const { routeComplete, fuelComplete, peopleComplete } = tripProgress(draft)
+  const compactHero = restoredWithProgress || compactHeroOverride
   const units = unitLabels(unitSystem)
   const currencies = useMemo(() => currencyOptions(), [])
   const hasResult = result !== null
@@ -178,6 +180,7 @@ export function AppPage() {
       updatedAt: nextDraft.updatedAt,
     }
     await selectTrip(record)
+    if (tripProgress(nextDraft).hasProgress) setCompactHeroOverride(true)
     setOpenSections(new Set(OPEN_EDITOR_SECTIONS))
     setLibraryMessage(template ? `Created ${name} from a template. Add riders and adjust it for this journey.` : `Created ${name}.`)
   }
@@ -306,6 +309,7 @@ export function AppPage() {
         updatedAt: importPreview.draft.updatedAt,
       }
       await selectTrip(changed)
+      if (tripProgress(changed.draft).hasProgress) setCompactHeroOverride(true)
       setLibraryMessage(`${importPreview.name} replaced the current trip.`)
     }
     setUnitSystem(importPreview.unitSystem)
@@ -318,6 +322,7 @@ export function AppPage() {
     if (trip.kind === 'template') await createTripFromDraft(`Trip from ${trip.name}`, trip.draft, true)
     else {
       await selectTrip(trip)
+      if (tripProgress(trip.draft).hasProgress) setCompactHeroOverride(true)
       setOpenSections(editableTripDraftSchema.safeParse(trip.draft).success ? new Set() : new Set(OPEN_EDITOR_SECTIONS))
       setLibraryMessage(`Opened ${trip.name}.`)
     }
@@ -478,7 +483,7 @@ export function AppPage() {
             <TripLibrary activeTripId={activeTripId} importError={importError} message={libraryMessage} trips={trips} vehiclePresets={vehiclePresets} onClose={() => setLibraryOpen(false)} onCopyLink={() => void copyEditableLink()} onDownload={downloadEditableTrip} onImport={(event) => void chooseImportFile(event)} onNewTrip={() => showTripDialog('create')} onNewVehicle={() => showVehicleDialog('create')} onUseVehicle={applyVehiclePreset} onEditVehicle={(preset) => showVehicleDialog('edit', preset)} onDeleteVehicle={(preset) => showVehicleDialog('delete', preset)} onOpenTrip={(trip) => void openLibraryTrip(trip)} onDuplicateTrip={(trip) => void duplicateTrip(trip)} onSaveTemplate={(trip) => void saveTemplate(trip)} onRenameTrip={(trip) => showTripDialog('rename', trip)} onDeleteTrip={(trip) => showTripDialog('delete', trip)} onRestoreTrip={(trip) => void restoreTrip(trip)} />
           </div>
         )}
-        <Hero compact={hasProgress} />
+        <Hero compact={compactHero} />
         <WorkflowNavigator
           complete={{
             route: routeComplete,

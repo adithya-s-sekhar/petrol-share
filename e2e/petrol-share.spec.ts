@@ -5,6 +5,44 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('keeps the full first-visit hero stable and compacts restored trips across themes and layouts', async ({ page }) => {
+  test.setTimeout(90_000)
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const width of [390, 768, 1440]) {
+      await page.evaluate(async () => {
+        await new Promise<void>((resolve, reject) => {
+          const request = indexedDB.deleteDatabase('petrol-share')
+          request.onsuccess = () => resolve()
+          request.onerror = () => reject(request.error)
+        })
+      })
+      await page.evaluate((value) => localStorage.setItem('petrol-share-theme', value), theme)
+      await page.setViewportSize({ width, height: 900 })
+      await page.reload()
+
+      const fullHero = page.locator('section[data-layout="full"]')
+      await expect(fullHero).toBeVisible()
+      const fullHeroHeight = (await fullHero.boundingBox())!.height
+      const editorTop = (await page.getByLabel('Stop 1 name').boundingBox())!.y
+
+      await page.getByLabel('Stop 1 name').fill('Home')
+      await expect(page.getByLabel('Stop 1 name')).toBeFocused()
+      await expect(fullHero).toBeVisible()
+      expect((await page.getByLabel('Stop 1 name').boundingBox())!.y).toBe(editorTop)
+      await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
+
+      await page.reload()
+      const compactHero = page.locator('section[data-layout="compact"]')
+      await expect(compactHero).toBeVisible()
+      expect((await compactHero.boundingBox())!.height).toBeLessThan(fullHeroHeight - 50)
+      expect((await page.getByLabel('Stop 1 name').boundingBox())!.y).toBeLessThan(editorTop - 50)
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  }
+})
+
 test('adds, assigns, edits, persists, and removes additional expenses', async ({ page }) => {
   test.setTimeout(60_000)
   await page.getByLabel('Stop 1 name').fill('Home')
@@ -307,6 +345,7 @@ test('exports an editable link and previews it before adding it on another devic
   await expect(recipient.getByLabel('Stop 1 name')).toHaveValue('')
   await preview.getByRole('button', { name: 'Add as new trip' }).click()
 
+  await expect(recipient.locator('section[data-layout="compact"]')).toBeVisible()
   await expect(recipient.getByLabel('Stop 1 name')).toHaveValue('Home')
   await expect(recipient.getByLabel('Distance from Home to Cafe in miles')).toHaveValue('6.213712')
   await expect(recipient.getByLabel('Asha rode from Cafe to Office')).toBeChecked()
