@@ -17,7 +17,7 @@
 
 ## Guidelines
 
-- Reusable minimal components, hooks, utilities and providers.
+- Reusable minimal components, hooks, utilities, constants, types and providers.
 - Tailwind for styling, no duplicated code.
 - DRY and SOLID principles.
 - Best practices for react state management and performance must be followed.
