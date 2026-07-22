@@ -14,7 +14,7 @@ const portableTripSchema = z.object({
     stops: z.array(z.string().max(200)).min(2).max(100),
     legs: z.array(z.object({
       distanceKm: z.number().finite().positive().nullable(),
-      distanceSource: z.enum(['manual', 'reused']).optional(),
+      distanceSource: z.enum(['manual', 'reused', 'lookup']).optional(),
     })).max(99),
     people: z.array(z.object({
       name: z.string().max(200),

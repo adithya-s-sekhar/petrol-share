@@ -16,6 +16,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Search,
   Share2,
   Sun,
   Trash2,
@@ -47,6 +48,7 @@ import { useTripEditor } from './app/useTripEditor'
 import { saveStoredTrip, type StoredTrip } from './persistence/tripStorage'
 import { loadVehiclePresets, saveVehiclePresets, type VehiclePreset } from './persistence/vehiclePresetStorage'
 import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip, type EditableTripImport } from './tripSharing'
+import { openRouteProvider, type PlaceSuggestion } from './maps/routeProvider'
 
 type ErrorMap = Record<string, string>
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
@@ -55,6 +57,7 @@ type UndoRemoval = { draft: TripDraft; message: string }
 type TripDialog = { action: 'create' | 'rename' | 'delete'; trip?: StoredTrip } | null
 type ImportPreview = EditableTripImport & { source: 'link' | 'file' }
 type VehicleDialog = { action: 'create' | 'edit' | 'delete'; preset?: VehiclePreset } | null
+type MapDialog = { legId: string; fromQuery: string; toQuery: string } | null
 
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
@@ -114,6 +117,12 @@ const styles: Record<string, string> = {
   'leg-name': 'flex min-w-0 items-center gap-[7px] pt-2.5 text-[13px] font-bold max-[560px]:text-[11px] [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap [&_svg]:shrink-0 [&_svg]:text-[#8c9995]',
   'unit-input': 'relative [&_input]:pr-12 [&_input]:text-right [&>span]:absolute [&>span]:right-[11px] [&>span]:top-3 [&>span]:text-xs [&>span]:font-bold [&>span]:text-[#76837f]',
   'distance-source': 'mt-[5px] inline-block rounded-full px-[7px] py-0.5 text-[10px] font-extrabold tracking-[.2px]', 'distance-source-reused': 'bg-[#dff2e8] text-[#176c4d]', 'distance-source-manual': 'bg-[#e7ebe9] text-[#596762]',
+  'distance-source-lookup': 'bg-[#e5ebff] text-[#36558f]',
+  'lookup-button': 'mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-[#a9cabb] bg-white px-2 text-xs font-extrabold text-[#176c4d] hover:bg-[#eaf5ef] [&_svg]:size-4',
+  'map-dialog': 'm-0 max-h-[90vh] w-[min(100%,620px)] overflow-y-auto rounded-2xl border-0 bg-white p-6 text-[#152a25] shadow-[0_20px_60px_rgba(10,35,27,.35)] [&_h2]:mb-2 [&_h2]:text-xl [&_p]:text-sm [&_p]:leading-6 [&_p]:text-[#5d6c62]',
+  'map-search-grid': 'mt-5 grid grid-cols-2 gap-4 max-[560px]:grid-cols-1 [&_label]:mb-1.5 [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_input]:w-full',
+  'suggestion-list': 'mt-2 grid max-h-48 gap-1 overflow-y-auto [&_label]:flex [&_label]:cursor-pointer [&_label]:items-start [&_label]:gap-2 [&_label]:rounded-lg [&_label]:border [&_label]:border-[#d7e0db] [&_label]:p-2 [&_label]:text-xs [&_label]:leading-5 [&_label:has(input:checked)]:border-[#52a37d] [&_label:has(input:checked)]:bg-[#edf7f1]',
+  'map-attribution': 'mt-4 rounded-lg bg-[#f3f7f4] p-3 text-xs leading-5 text-[#5d6c62] [&_a]:font-bold [&_a]:text-[#176c4d]',
   'field-error': 'mt-[5px] flex items-center gap-1 text-[11px] text-[#b53b31] [&_svg]:shrink-0',
   'unit-picker': 'mb-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f3f7f4] p-1.5 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2 [&_button]:text-xs [&_button]:font-bold [&_button[aria-pressed=true]]:bg-white [&_button[aria-pressed=true]]:text-[#147a56] [&_button[aria-pressed=true]]:shadow-sm',
   'fuel-fields': 'grid grid-cols-2 gap-3 max-[560px]:grid-cols-1', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': '',
@@ -216,6 +225,13 @@ function App() {
   const [vehicleEconomy, setVehicleEconomy] = useState('')
   const [vehicleFuelType, setVehicleFuelType] = useState('')
   const [vehicleUnits, setVehicleUnits] = useState<UnitSystem>('metric')
+  const [mapDialog, setMapDialog] = useState<MapDialog>(null)
+  const [fromSuggestions, setFromSuggestions] = useState<PlaceSuggestion[]>([])
+  const [toSuggestions, setToSuggestions] = useState<PlaceSuggestion[]>([])
+  const [selectedFrom, setSelectedFrom] = useState('')
+  const [selectedTo, setSelectedTo] = useState('')
+  const [mapStatus, setMapStatus] = useState<'idle' | 'searching' | 'routing'>('idle')
+  const [mapError, setMapError] = useState('')
   const [newTripTemplateId, setNewTripTemplateId] = useState('')
   const [tripName, setTripName] = useState('')
   const [libraryMessage, setLibraryMessage] = useState('')
@@ -241,6 +257,52 @@ function App() {
     const cost = (leg.distanceKm ?? 0) / draft.fuelSettings.fuelEconomyKmpl! * draft.fuelSettings.fuelPricePerLitre!
     return { leg, riders, cost }
   }) : []
+
+  function showMapDialog(legId: string) {
+    const leg = draft.legs.find((item) => item.id === legId)
+    if (!leg) return
+    setMapDialog({ legId, fromQuery: stopsById.get(leg.fromStopId) ?? '', toQuery: stopsById.get(leg.toStopId) ?? '' })
+    setFromSuggestions([]); setToSuggestions([]); setSelectedFrom(''); setSelectedTo(''); setMapError(''); setMapStatus('idle')
+  }
+
+  async function findPlaces() {
+    if (!mapDialog?.fromQuery.trim() || !mapDialog.toQuery.trim()) {
+      setMapError('Enter both place names before searching.')
+      return
+    }
+    setMapStatus('searching'); setMapError('')
+    try {
+      // Searches are deliberately sequential to respect the public geocoder's usage limits.
+      const from = await openRouteProvider.searchPlaces(mapDialog.fromQuery)
+      await new Promise((resolve) => window.setTimeout(resolve, 1000))
+      const to = await openRouteProvider.searchPlaces(mapDialog.toQuery)
+      setFromSuggestions(from); setToSuggestions(to); setSelectedFrom(from[0]?.id ?? ''); setSelectedTo(to[0]?.id ?? '')
+      if (!from.length || !to.length) setMapError('No matching places were found. Refine the names or keep entering the distance manually.')
+    } catch (error) {
+      setMapError(error instanceof Error ? error.message : 'Place search failed. Your existing trip is unchanged.')
+    } finally { setMapStatus('idle') }
+  }
+
+  async function applyRoadDistance() {
+    if (!mapDialog) return
+    const from = fromSuggestions.find(({ id }) => id === selectedFrom)
+    const to = toSuggestions.find(({ id }) => id === selectedTo)
+    if (!from || !to) { setMapError('Choose an origin and destination suggestion first.'); return }
+    setMapStatus('routing'); setMapError('')
+    try {
+      const distanceKm = await openRouteProvider.roadDistanceKm(from, to)
+      const leg = draft.legs.find(({ id }) => id === mapDialog.legId)
+      if (!leg) return
+      update({
+        ...draft,
+        stops: draft.stops.map((stop) => stop.id === leg.fromStopId ? { ...stop, name: from.label } : stop.id === leg.toStopId ? { ...stop, name: to.label } : stop),
+        legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm, distanceSource: 'lookup' } : item),
+      })
+      setMapDialog(null)
+    } catch (error) {
+      setMapError(error instanceof Error ? error.message : 'Route lookup failed. Your existing trip is unchanged.')
+    } finally { setMapStatus('idle') }
+  }
 
   useEffect(() => {
     const updateAssignmentLayout = () => setMobileAssignments(window.innerWidth <= 560)
@@ -628,7 +690,7 @@ function App() {
                     const errorId = `leg-${leg.id}-error`
                     return <div className={classes("leg-row")} key={leg.id}>
                       <div className={classes("leg-name")}><span>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={16} /><span>{stopsById.get(leg.toStopId)}</span></div>
-                      <div><label className={classes("row-label")} htmlFor={`leg-${leg.id}`}>Distance ({units.distance})</label><div className={classes("unit-input")}><input id={`leg-${leg.id}`} aria-label={`Distance from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)} in ${units.distanceLong}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={displayNumber(leg.distanceKm, (value) => distanceFromKm(value, unitSystem))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => reuseLegDistanceForBlankReverse(leg.id)} onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: value === null ? null : distanceToKm(value, unitSystem), distanceSource: 'manual' } : item) }) }} /><span>{units.distance}</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource === 'reused' ? 'reused' : 'manual'}`)}>{leg.distanceSource === 'reused' ? 'Auto-filled' : 'Manual'}</span>}<FieldError id={errorId} message={error} /></div>
+                      <div><label className={classes("row-label")} htmlFor={`leg-${leg.id}`}>Distance ({units.distance})</label><div className={classes("unit-input")}><input id={`leg-${leg.id}`} aria-label={`Distance from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)} in ${units.distanceLong}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={displayNumber(leg.distanceKm, (value) => distanceFromKm(value, unitSystem))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => reuseLegDistanceForBlankReverse(leg.id)} onChange={(event) => { const value = numberFromInput(event.target.value); update({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: value === null ? null : distanceToKm(value, unitSystem), distanceSource: 'manual' } : item) }) }} /><span>{units.distance}</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource ?? 'manual'}`)} title={leg.distanceSource === 'reused' ? 'Reused from the reverse leg' : undefined}>{leg.distanceSource === 'reused' ? 'Auto-filled' : leg.distanceSource === 'lookup' ? 'Looked up' : 'Manual'}</span>}<button className={classes("lookup-button")} type="button" onClick={() => showMapDialog(leg.id)}><Search /> Look up road distance</button><FieldError id={errorId} message={error} /></div>
                     </div>
                   })}
                 </div>
@@ -706,6 +768,7 @@ function App() {
       {resetDialogOpen && <div className={classes("dialog-backdrop")} onMouseDown={(event) => { if (event.target === event.currentTarget) closeResetDialog() }}><div className={classes("reset-dialog")} role="alertdialog" aria-modal="true" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description" onKeyDown={(event) => { if (event.key === 'Escape') closeResetDialog() }}><h2 id="reset-dialog-title">Reset the complete trip?</h2><p id="reset-dialog-description">This deletes all stops, people, distances, assignments, and fuel settings from this device.</p><div className={classes("dialog-actions")}><button ref={cancelResetRef} className={classes("dialog-cancel")} type="button" onClick={closeResetDialog}>Cancel</button><button className={classes("dialog-confirm")} type="button" onClick={resetTrip}>Reset trip</button></div></div></div>}
       {tripDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="trip-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape') setTripDialog(null) }}><h2 id="trip-dialog-title">{tripDialog.action === 'create' ? 'Create a new trip' : tripDialog.action === 'rename' ? `Rename ${tripDialog.trip?.name}` : `Delete ${tripDialog.trip?.name}?`}</h2>{tripDialog.action === 'delete' ? <p>The trip will move to Recently deleted, where you can restore it later.</p> : <div className={classes("dialog-input")}><label htmlFor="trip-name">Trip name</label><input id="trip-name" autoFocus value={tripName} onChange={(event) => setTripName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void submitTripDialog() }} />{tripDialog.action === 'create' && <><label htmlFor="route-template">Frequently used route (optional)</label><select id="route-template" value={newTripTemplateId} onChange={(event) => setNewTripTemplateId(event.target.value)}><option value="">Start with a blank route</option>{trips.filter(({ kind, deletedAt }) => kind === 'template' && !deletedAt).map((template) => <option key={template.id} value={template.id}>{template.name} · {routeSummary(template.draft)}</option>)}</select><small>The selected route is copied into a new trip; your current trip stays unchanged.</small></>}</div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setTripDialog(null)}>Cancel</button><button className={classes(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>{tripDialog.action === 'create' ? 'Create trip' : tripDialog.action === 'rename' ? 'Save name' : 'Move to Recently deleted'}</button></div></div></div>}
       {vehicleDialog && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title"><h2 id="vehicle-dialog-title">{vehicleDialog.action === 'create' ? 'Save vehicle preset' : vehicleDialog.action === 'edit' ? `Edit ${vehicleDialog.preset?.name}` : `Delete ${vehicleDialog.preset?.name}?`}</h2>{vehicleDialog.action === 'delete' ? <p>This removes the local preset. Existing trips are not changed.</p> : <div className={classes("dialog-input")}><label htmlFor="vehicle-name">Preset name</label><input id="vehicle-name" autoFocus value={vehicleName} onChange={(event) => setVehicleName(event.target.value)} /><label htmlFor="vehicle-units">Preferred units</label><select id="vehicle-units" value={vehicleUnits} onChange={(event) => { const next = event.target.value as UnitSystem; const current = Number(vehicleEconomy); setVehicleEconomy(Number.isFinite(current) && current > 0 ? String(economyFromKmpl(economyToKmpl(current, vehicleUnits), next)) : ''); setVehicleUnits(next) }}><option value="metric">Metric</option><option value="us">US customary</option><option value="imperial">UK imperial</option></select><label htmlFor="vehicle-economy">Fuel economy ({unitLabels(vehicleUnits).economy})</label><input id="vehicle-economy" type="number" min="0" step="any" value={vehicleEconomy} onChange={(event) => setVehicleEconomy(event.target.value)} /><label htmlFor="vehicle-fuel-type">Fuel type (optional)</label><input id="vehicle-fuel-type" value={vehicleFuelType} placeholder="e.g. Petrol" onChange={(event) => setVehicleFuelType(event.target.value)} /></div>}<div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setVehicleDialog(null)}>Cancel</button><button className={classes(vehicleDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={submitVehicleDialog}>{vehicleDialog.action === 'delete' ? 'Delete preset' : 'Save preset'}</button></div></div></div>}
+      {mapDialog && <div className={classes("dialog-backdrop")}><div className={classes("map-dialog")} role="dialog" aria-modal="true" aria-labelledby="map-dialog-title" onKeyDown={(event) => { if (event.key === 'Escape' && mapStatus === 'idle') setMapDialog(null) }}><h2 id="map-dialog-title">Look up road distance</h2><p>No request is made until you select an action below. Manual distance entry and your saved trip continue to work offline.</p><div className={classes("map-search-grid")}><div><label htmlFor="from-place">Origin</label><input id="from-place" value={mapDialog.fromQuery} onChange={(event) => setMapDialog({ ...mapDialog, fromQuery: event.target.value })} />{fromSuggestions.length > 0 && <div className={classes("suggestion-list")} role="radiogroup" aria-label="Origin suggestions">{fromSuggestions.map((place) => <label key={place.id}><input type="radio" name="from-place" checked={selectedFrom === place.id} onChange={() => setSelectedFrom(place.id)} />{place.label}</label>)}</div>}</div><div><label htmlFor="to-place">Destination</label><input id="to-place" value={mapDialog.toQuery} onChange={(event) => setMapDialog({ ...mapDialog, toQuery: event.target.value })} />{toSuggestions.length > 0 && <div className={classes("suggestion-list")} role="radiogroup" aria-label="Destination suggestions">{toSuggestions.map((place) => <label key={place.id}><input type="radio" name="to-place" checked={selectedTo === place.id} onChange={() => setSelectedTo(place.id)} />{place.label}</label>)}</div>}</div></div>{mapError && <p className={classes("error-notice notice")} role="alert">{mapError}</p>}<div className={classes("map-attribution")}>Place searches are sent to <a href="https://nominatim.openstreetmap.org/" target="_blank" rel="noreferrer">Nominatim</a>; selected coordinates are sent to the <a href="https://project-osrm.org/" target="_blank" rel="noreferrer">OSRM demo server</a>. Results use © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>. Provider services may receive your IP address and search text. Do not enter private addresses unless you accept this.</div><div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" disabled={mapStatus !== 'idle'} onClick={() => setMapDialog(null)}>Cancel</button><button className={classes("dialog-cancel")} type="button" disabled={mapStatus !== 'idle'} onClick={() => void findPlaces()}>{mapStatus === 'searching' ? 'Searching…' : 'Find places'}</button><button className={classes("done-button")} type="button" disabled={!selectedFrom || !selectedTo || mapStatus !== 'idle'} onClick={() => void applyRoadDistance()}>{mapStatus === 'routing' ? 'Finding route…' : 'Use road distance'}</button></div></div></div>}
       {importPreview && <div className={classes("dialog-backdrop")}><div className={classes("reset-dialog")} role="dialog" aria-modal="true" aria-labelledby="import-dialog-title"><h2 id="import-dialog-title">Preview imported trip</h2><p>Review this trip before saving it on this device. Nothing local has changed yet.</p><div className={classes("import-preview")}><dl><dt>Name</dt><dd>{importPreview.name}</dd><dt>Route</dt><dd>{routeSummary(importPreview.draft)}</dd><dt>Stops</dt><dd>{importPreview.draft.stops.length}</dd><dt>Riders</dt><dd>{importPreview.draft.people.length}</dd><dt>Units</dt><dd>{importPreview.unitSystem === 'metric' ? 'Metric' : importPreview.unitSystem === 'us' ? 'US customary' : 'UK imperial'}</dd></dl></div><div className={classes("dialog-actions")}><button className={classes("dialog-cancel")} type="button" onClick={() => setImportPreview(null)}>Cancel</button><button className={classes("dialog-cancel")} type="button" onClick={() => void confirmImport('add')}>Add as new trip</button><button className={classes("dialog-confirm")} type="button" onClick={() => void confirmImport('replace')}>Replace current trip</button></div></div></div>}
       {result && !resultsVisible && <a className={classes("mobile-result-action")} href="#results">View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} /></a>}
       <footer>Made for fair journeys.</footer>

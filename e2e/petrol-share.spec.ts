@@ -5,6 +5,28 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('looks up an optional road distance and keeps it editable', async ({ page }) => {
+  await page.route('https://nominatim.openstreetmap.org/search**', async (route) => {
+    const query = new URL(route.request().url()).searchParams.get('q')
+    await route.fulfill({ json: [{ place_id: query === 'Home' ? 1 : 2, display_name: `${query}, Kerala`, lat: query === 'Home' ? '10' : '11', lon: query === 'Home' ? '76' : '77' }] })
+  })
+  await page.route('https://router.project-osrm.org/route/v1/driving/**', (route) => route.fulfill({ json: { code: 'Ok', routes: [{ distance: 42500 }] } }))
+
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await expect(page.getByLabel('Distance from Home to Office in kilometres')).toHaveValue('')
+  await page.getByRole('button', { name: 'Look up road distance' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Look up road distance' })
+  await expect(dialog).toContainText('No request is made until you select an action')
+  await dialog.getByRole('button', { name: 'Find places' }).click()
+  await expect(dialog.getByRole('radiogroup', { name: 'Origin suggestions' })).toContainText('Home, Kerala')
+  await dialog.getByRole('button', { name: 'Use road distance' }).click()
+  await expect(page.getByLabel('Distance from Home, Kerala to Office, Kerala in kilometres')).toHaveValue('42.5')
+  await expect(page.getByText('Looked up')).toBeVisible()
+  await page.getByLabel('Distance from Home, Kerala to Office, Kerala in kilometres').fill('40')
+  await expect(page.getByText('Manual')).toBeVisible()
+})
+
 test('uses vehicle and route presets and makes a safe editable round trip', async ({ page }) => {
   await page.getByLabel('Stop 1 name').fill('Home')
   await page.getByLabel('Stop 2 name').fill('Cafe')
