@@ -48,169 +48,20 @@ import { useTripEditor } from './app/useTripEditor'
 import { saveStoredTrip, type StoredTrip } from './persistence/tripStorage'
 import { loadVehiclePresets, saveVehiclePresets, type VehiclePreset } from './persistence/vehiclePresetStorage'
 import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip, type EditableTripImport } from './tripSharing'
-import { openRouteProvider, type PlaceSuggestion } from './maps/routeProvider'
+import { FieldError, IconButton } from './app/AppControls'
+import { cloneDraft, displayNumber, numberFromInput, recordId, routeSummary, validationErrors } from './app/tripDraftUtils'
+import { classes } from './app/styles'
+import { useRouteLookup } from './app/useRouteLookup'
 
-type ErrorMap = Record<string, string>
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
 type EditorSection = 'route' | 'fuel' | 'people'
 type UndoRemoval = { draft: TripDraft; message: string }
 type TripDialog = { action: 'create' | 'rename' | 'delete'; trip?: StoredTrip } | null
 type ImportPreview = EditableTripImport & { source: 'link' | 'file' }
 type VehicleDialog = { action: 'create' | 'edit' | 'delete'; preset?: VehiclePreset } | null
-type MapDialog = { legId: string; fromQuery: string; toQuery: string } | null
 
 const PUBLIC_SITE_URL = 'https://adithya-s-sekhar.github.io/petrol-share/'
 
-const styles: Record<string, string> = {
-  'sr-only': 'absolute -m-px size-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]',
-  'app-shell': 'min-h-screen bg-[radial-gradient(circle_at_50%_0,#e5f4e9_0,transparent_28rem)] bg-[#f5f7f4] text-[#152a25]',
-  'site-header': 'sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#dce5df] bg-white/80 px-[max(20px,calc((100vw-1180px)/2))] backdrop-blur-[14px] max-[560px]:h-[60px] max-[560px]:px-[13px]',
-  brand: 'flex min-h-11 min-w-0 shrink-0 items-center gap-2.5 text-[19px] tracking-[-.4px] text-[#18362d] no-underline [&>span:last-child]:max-[480px]:hidden',
-  'brand-mark': 'grid size-9 place-items-center rounded-[11px] bg-[#14875d] text-white shadow-[0_5px_14px_rgba(20,135,93,.24)] [&_svg]:w-5',
-  'header-actions': 'flex min-w-0 items-center gap-1',
-  'trips-button': 'inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#c7d8cf] bg-white px-3 text-sm font-extrabold text-[#176c4d] hover:bg-[#edf7f1] max-[560px]:px-2 max-[560px]:text-xs [&_svg]:size-4',
-  'header-save-status': 'inline-flex min-w-[78px] items-center justify-end gap-1.5 px-2 text-xs font-bold text-[#5d6c62] max-[560px]:min-w-0 max-[560px]:px-1 [&_svg]:size-3.5',
-  'theme-button': 'grid size-11 shrink-0 place-items-center rounded-[9px] border-0 bg-transparent text-[#60706a] hover:bg-[#eef2ef] hover:text-[#147a56] active:bg-[#dfeae4] [&_svg]:size-[18px]',
-  'reset-button': 'inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[9px] border-0 bg-transparent px-2.5 py-[9px] font-bold text-[#8f382f] hover:bg-[#fbecea] hover:text-[#7f2f27] active:bg-[#f5d8d4] max-[560px]:size-11 max-[560px]:gap-0 max-[560px]:p-0 max-[560px]:[&_span]:hidden',
-  'recovery-notice': 'mx-auto mt-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-[#efc4bd] bg-[#fff0ee] px-4 py-3 text-sm font-semibold text-[#8f382f] [&_svg]:size-5 [&_svg]:shrink-0 [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#d99b92] [&_button]:bg-white [&_button]:px-3 [&_button]:font-extrabold',
-  'undo-toast': 'fixed bottom-5 left-1/2 z-30 flex w-[min(92vw,480px)] -translate-x-1/2 items-center gap-3 rounded-xl bg-[#173f34] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_36px_rgba(18,59,47,.3)] [&_button]:ml-auto [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#80d6ac] [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#9be5c1]',
-  'dialog-backdrop': 'fixed inset-0 z-40 grid place-items-center bg-[#10251f]/55 p-5',
-  'reset-dialog': 'm-0 w-[min(100%,440px)] rounded-2xl border-0 bg-white p-6 text-[#152a25] shadow-[0_20px_60px_rgba(10,35,27,.35)] [&_h2]:mb-2 [&_h2]:text-xl [&_p]:leading-6 [&_p]:text-[#5d6c62]',
-  'dialog-actions': 'mt-6 flex justify-end gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:px-4 [&_button]:font-extrabold',
-  'dialog-cancel': 'border border-[#cad7d0] bg-white text-[#29483e]', 'dialog-confirm': 'border-0 bg-[#a13c31] text-white',
-  'library': 'mx-auto mb-7 w-[min(100%-40px,1132px)] rounded-2xl border border-[#d7e3dc] bg-white p-5 shadow-[0_10px_32px_rgba(36,67,56,.08)] max-[560px]:w-[calc(100%-20px)] max-[560px]:p-4',
-  'library-heading': 'mb-4 flex items-center justify-between gap-3 [&_h2]:m-0 [&_h2]:text-xl [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-sm [&_p]:text-[#6b7974]',
-  'library-actions': 'flex flex-wrap gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#bcd5c8] [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#176c4d]',
-  'preset-list': 'mt-3 grid gap-2',
-  'preset-row': 'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dfe6e1] p-3 [&_p]:m-0 [&_p]:text-xs [&_p]:text-[#697772]',
-  'preset-actions': 'flex flex-wrap gap-1 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-bold [&_button]:text-[#176c4d] [&_button:last-child]:text-[#963b32]',
-  'import-error': 'mt-3 rounded-lg border border-[#efc4bd] bg-[#fff0ee] px-3 py-2 text-sm font-semibold text-[#8f382f]',
-  'import-preview': 'mt-4 rounded-xl bg-[#f3f7f4] p-4 [&_dl]:m-0 [&_dl]:grid [&_dl]:grid-cols-[auto_1fr] [&_dl]:gap-x-4 [&_dl]:gap-y-2 [&_dt]:font-bold [&_dd]:m-0 [&_dd]:break-words',
-  'trip-list': 'mt-4 grid gap-3',
-  'trip-card': 'grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border border-[#dfe6e1] p-4 max-[650px]:grid-cols-1 [&_h3]:m-0 [&_h3]:text-base [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-xs [&_p]:text-[#697772]',
-  'trip-card-active': 'border-[#52a37d] bg-[#f0f9f4]',
-  'trip-card-actions': 'flex flex-wrap items-center justify-end gap-1 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2.5 [&_button]:font-bold [&_button]:text-[#176c4d] [&_button:hover]:bg-[#e5f3eb] [&_button:last-child]:text-[#963b32]',
-  'template-label': 'mb-2 inline-flex rounded-full bg-[#e9efff] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#3c5790]',
-  'dialog-input': 'mt-4 grid gap-2 [&_label]:text-sm [&_label]:font-bold [&_input]:min-h-11',
-  hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
-  'hero-compact': '!pb-7 !pt-8 max-[560px]:!pb-5 max-[560px]:!pt-6 [&_.eyebrow]:hidden [&_h1]:!text-[clamp(32px,4vw,46px)] [&_p]:hidden',
-  eyebrow: 'inline-flex items-center gap-[7px] rounded-full border border-[#cce4d6] bg-[#eff9f3] px-3 py-[7px] text-[11px] font-extrabold uppercase tracking-[1.25px] text-[#167451]',
-  'editor-grid': 'grid w-full min-w-0 grid-cols-[minmax(0,1.12fr)_minmax(360px,.88fr)] items-start gap-6 max-[880px]:grid-cols-1',
-  'editor-column': 'grid min-w-0 gap-6', 'results-column': 'sticky top-[92px] grid min-w-0 gap-6 max-[880px]:static',
-  panel: 'min-w-0 max-w-full rounded-[18px] border border-[#dfe6e1] bg-white/95 p-[25px] shadow-[0_8px_32px_rgba(36,67,56,.055)] max-[560px]:rounded-[15px] max-[560px]:px-[15px] max-[560px]:py-[19px]',
-  'panel-heading': 'mb-6 flex items-start gap-3.5 [&_h2]:mb-1 [&_h2]:mt-px [&_h2]:text-[19px] [&_h2]:tracking-[-.35px] [&_p]:m-0 [&_p]:text-[13px] [&_p]:leading-6 [&_p]:text-[#7a8581] max-[560px]:mb-5',
-  'panel-collapsed': '!p-0', 'section-toggle': 'flex min-h-[76px] w-full items-center gap-3.5 rounded-[18px] border-0 bg-transparent px-[25px] py-4 text-left max-[560px]:rounded-[15px] max-[560px]:px-[15px] [&>div]:min-w-0 [&_h2]:m-0 [&_h2]:text-[17px] [&_p]:m-0 [&_p]:overflow-hidden [&_p]:text-ellipsis [&_p]:whitespace-nowrap [&_p]:text-[13px] [&_p]:font-semibold [&_p]:text-[#62716b] [&_svg]:ml-auto [&_svg]:shrink-0 [&_svg]:text-[#668078]',
-  'done-button': 'mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[9px] border border-[#b7d5c6] bg-[#eaf5ef] px-4 py-2 font-extrabold text-[#176c4d] hover:bg-[#dceee5]',
-  compact: '!mb-[18px]', step: 'grid size-[31px] shrink-0 place-items-center rounded-[9px] bg-[#17875e] text-[13px] font-extrabold text-white',
-  'stops-list': 'mb-3.5 grid list-none gap-2.5 p-0', 'people-list': 'mb-3.5 grid gap-2.5',
-  'expense-list': 'grid gap-3', 'expense-row': 'grid gap-3 rounded-xl border border-[#dfe6e1] bg-[#f8faf8] p-4',
-  'expense-grid': 'grid grid-cols-[minmax(0,1fr)_150px_auto] items-end gap-3 max-[560px]:grid-cols-1',
-  'expense-scope': 'grid min-w-0 grid-cols-3 gap-2 max-[560px]:grid-cols-1 [&_label]:flex [&_label]:min-w-0 [&_label]:min-h-11 [&_label]:cursor-pointer [&_label]:items-center [&_label]:gap-2 [&_label]:rounded-lg [&_label]:border [&_label]:border-[#d7e0db] [&_label]:bg-white [&_label]:px-3 [&_label]:break-words [&_label:has(input:checked)]:border-[#64ad89] [&_label:has(input:checked)]:bg-[#e5f4ec]',
-  'expense-people': 'flex flex-wrap gap-2 [&_label]:flex [&_label]:min-h-11 [&_label]:items-center [&_label]:gap-2 [&_label]:rounded-lg [&_label]:border [&_label]:border-[#d7e0db] [&_label]:bg-white [&_label]:px-3 [&_label:has(input:checked)]:border-[#64ad89] [&_label:has(input:checked)]:bg-[#e5f4ec]',
-  'stop-row': 'grid grid-cols-[25px_minmax(0,1fr)_auto] items-end gap-[9px] max-[560px]:grid-cols-[20px_minmax(0,1fr)]', 'person-row': 'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[9px]',
-  'stop-index': 'grid h-[42px] w-[25px] shrink-0 place-items-center text-[11px] font-extrabold text-[#8a9692] max-[560px]:w-5',
-  'field-grow': 'min-w-0 flex-1', 'row-label': 'mb-1.5 block text-xs font-bold text-[#4e5f59]', 'input-with-icon': 'relative [&_svg]:pointer-events-none [&_svg]:absolute [&_svg]:left-[11px] [&_svg]:top-3 [&_svg]:text-[#7c8c86] [&_input]:pl-[38px]',
-  'row-actions': 'flex gap-1 max-[560px]:col-start-2 max-[560px]:pt-0',
-  'icon-button': 'grid size-11 place-items-center rounded-lg border-0 bg-transparent p-0 text-[#5f6f69] hover:not-disabled:bg-[#e4f3eb] hover:not-disabled:text-[#116b49] active:not-disabled:bg-[#d3eadd] disabled:text-[#89948f] [&_svg]:w-4',
-  'destructive-button': 'ml-1 border border-[#e8c5c1] text-[#a13c31] hover:not-disabled:!bg-[#fbecea] hover:not-disabled:!text-[#842f27] active:not-disabled:!bg-[#f5d8d4]',
-  'secondary-button': 'inline-flex min-h-11 items-center justify-center gap-2 rounded-[9px] border border-dashed border-[#94c5ad] bg-[#eef7f2] px-[15px] py-[9px] font-bold text-[#177653] hover:bg-[#e4f3eb] active:bg-[#d3eadd]',
-  'full-button': 'w-full', 'return-stops': 'mt-[13px] rounded-[10px] bg-[#f8faf8] p-3 [&>span]:mb-2 [&>span]:block [&>span]:text-[13px] [&>span]:font-bold [&>span]:text-[#52615c] [&>div]:flex [&>div]:flex-wrap [&>div]:gap-[7px] [&>p]:mt-2 [&>p]:text-xs [&>p]:text-[#718079]',
-  'return-stop-button': 'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#cbded4] bg-white px-[13px] py-[7px] font-bold text-[#176c4d] hover:bg-[#eef7f2] active:bg-[#dfeee6]',
-  subsection: 'mt-[27px] border-t border-[#e6ebe8] pt-[22px] [&_h3]:mb-[13px] [&_h3]:text-[13px] [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-[.85px] [&_h3]:text-[#66746f]',
-  'leg-list': 'grid gap-[9px]', 'leg-row': 'grid grid-cols-[minmax(0,1fr)_140px] items-start gap-4 rounded-[10px] bg-[#f6f8f6] px-[13px] py-3 max-[560px]:grid-cols-[1fr_115px] max-[560px]:gap-2 max-[560px]:p-2.5',
-  'leg-name': 'flex min-w-0 items-center gap-[7px] pt-2.5 text-[13px] font-bold max-[560px]:text-[11px] [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap [&_svg]:shrink-0 [&_svg]:text-[#8c9995]',
-  'unit-input': 'relative [&_input]:pr-12 [&_input]:text-right [&>span]:absolute [&>span]:right-[11px] [&>span]:top-3 [&>span]:text-xs [&>span]:font-bold [&>span]:text-[#76837f]',
-  'distance-source': 'mt-[5px] inline-block rounded-full px-[7px] py-0.5 text-[10px] font-extrabold tracking-[.2px]', 'distance-source-reused': 'bg-[#dff2e8] text-[#176c4d]', 'distance-source-manual': 'bg-[#e7ebe9] text-[#596762]',
-  'distance-source-lookup': 'bg-[#e5ebff] text-[#36558f]',
-  'lookup-button': 'mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-[#a9cabb] bg-white px-2 text-xs font-extrabold text-[#176c4d] hover:bg-[#eaf5ef] [&_svg]:size-4',
-  'map-dialog': 'm-0 max-h-[90vh] w-[min(100%,620px)] overflow-y-auto rounded-2xl border-0 bg-white p-6 text-[#152a25] shadow-[0_20px_60px_rgba(10,35,27,.35)] [&_h2]:mb-2 [&_h2]:text-xl [&_p]:text-sm [&_p]:leading-6 [&_p]:text-[#5d6c62]',
-  'map-search-grid': 'mt-5 grid min-w-0 grid-cols-2 gap-4 max-[560px]:grid-cols-1 [&>div]:min-w-0 [&>div>label]:mb-1.5 [&>div>label]:block [&>div>label]:text-xs [&>div>label]:font-bold [&>div>input]:w-full',
-  'suggestion-list': 'mt-2 grid min-w-0 max-h-48 gap-1 overflow-y-auto [&_label]:flex [&_label]:min-w-0 [&_label]:cursor-pointer [&_label]:items-start [&_label]:gap-2 [&_label]:rounded-lg [&_label]:border [&_label]:border-[#d7e0db] [&_label]:p-2 [&_label]:text-xs [&_label]:leading-5 [&_label:has(input:checked)]:border-[#52a37d] [&_label:has(input:checked)]:bg-[#edf7f1] [&_span]:min-w-0 [&_span]:break-words [&_span]:[overflow-wrap:anywhere]',
-  'map-attribution': 'mt-4 rounded-lg bg-[#f3f7f4] p-3 text-xs leading-5 text-[#5d6c62] [&_a]:font-bold [&_a]:text-[#176c4d]',
-  'field-error': 'mt-[5px] flex items-center gap-1 text-[11px] text-[#b53b31] [&_svg]:shrink-0',
-  'unit-picker': 'mb-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f3f7f4] p-1.5 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2 [&_button]:text-xs [&_button]:font-bold [&_button[aria-pressed=true]]:bg-white [&_button[aria-pressed=true]]:text-[#147a56] [&_button[aria-pressed=true]]:shadow-sm',
-  'fuel-fields': 'grid grid-cols-2 gap-3 max-[560px]:grid-cols-1', 'form-field': '[&_label]:mb-[7px] [&_label]:block [&_label]:text-xs [&_label]:font-bold [&_label]:text-[#4e5f59]', 'currency-field': '',
-  'assignment-panel': 'max-[880px]:order-none', 'assignment-scroll': '-mx-2 -mb-[5px] max-w-[calc(100%+1rem)] overflow-x-auto px-2 pb-[5px] max-[560px]:hidden',
-  'assignment-cards': 'hidden gap-3 max-[560px]:grid', 'assignment-card': 'min-w-0 rounded-xl border border-[#dfe6e1] bg-[#f8faf8] p-3.5',
-  'assignment-card-heading': 'mb-3 flex min-w-0 items-start justify-between gap-3 border-b border-[#e1e8e4] pb-3', 'assignment-route': 'min-w-0 text-sm font-extrabold leading-5 [&_span]:block [&_span]:break-words [&_svg]:my-1 [&_svg]:size-4 [&_svg]:text-[#82918b]',
-  'select-all-button': 'min-h-11 shrink-0 rounded-lg border border-[#9bcab4] bg-white px-3 py-2 text-xs font-extrabold text-[#176c4d] hover:bg-[#e8f5ee] active:bg-[#d7ecdf]',
-  'assignment-chip-list': 'grid gap-2', 'assignment-chip': 'flex min-h-11 min-w-0 cursor-pointer items-center gap-3 rounded-lg border border-[#d7e0db] bg-white px-3 py-2.5 text-sm font-bold [&:has(input:checked)]:border-[#64ad89] [&:has(input:checked)]:bg-[#e5f4ec] [&:has(input:focus-visible)]:outline [&:has(input:focus-visible)]:outline-3 [&:has(input:focus-visible)]:outline-offset-2 [&:has(input:focus-visible)]:outline-[#0f7652] [&_span]:min-w-0 [&_span]:break-words',
-  'empty-state': 'rounded-[11px] border border-dashed border-[#d5deda] bg-[#fafbfa] px-[18px] py-[30px] text-center text-[#88938f] [&_svg]:mx-auto [&_svg]:w-7 [&_p]:mb-0 [&_p]:mt-[5px] [&_p]:text-[13px]',
-  'results-card': 'min-w-0 max-w-full overflow-hidden rounded-[19px] bg-[#173f34] text-white shadow-[0_16px_40px_rgba(18,59,47,.18)]',
-  'results-heading': 'flex items-center justify-between border-b border-white/10 px-[25px] pb-5 pt-6 max-[560px]:px-5 [&_h2]:mb-0 [&_h2]:mt-1 [&_h2]:font-serif [&_h2]:text-2xl [&_h2]:font-medium [&>svg]:w-7 [&>svg]:text-[#6ec59e]', 'results-kicker': 'text-[10px] font-extrabold uppercase tracking-[1.3px] text-[#83d0ad]',
-  'results-empty': 'px-[25px] pb-[25px] pt-[31px] text-center [&_p]:text-[13px] [&_p]:leading-[1.6] [&_p]:text-[#b8cbc4]', 'primary-button': 'mt-2 inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border-0 bg-[#80d6ac] px-[18px] py-2.5 font-bold text-[#163b30] hover:bg-[#96e2bc]',
-  'live-result-note': 'mx-[25px] mb-0 border-t border-white/10 py-3 text-center text-xs text-[#b8cbc4] max-[560px]:mx-5',
-  totals: 'grid grid-cols-2 gap-5 px-[25px] py-[22px] max-[560px]:px-5 [&>div]:grid [&>div]:gap-1 [&_span]:text-[11px] [&_span]:text-[#a9c1b8] [&_strong]:text-[17px]', 'total-cost': 'col-span-full border-t border-white/10 pt-4 [&_strong]:font-serif [&_strong]:!text-[32px] [&_strong]:font-medium [&_strong]:text-[#88dfb5]',
-  notice: 'mx-[25px] mb-6 flex items-start gap-2.5 rounded-[9px] p-[13px] text-xs leading-6 [&>svg]:w-[18px] [&>svg]:shrink-0', 'warning-notice': 'border border-[#ffcf7040] bg-[#ebab3321] text-[#ffe4a3] [&_strong]:text-[#fff0c8] [&_ul]:mb-0 [&_ul]:mt-[5px] [&_ul]:pl-[17px]', 'error-notice': '!mx-0 !mb-0 mt-3 border border-[#f1c8c3] bg-[#fff0ee] text-[#a5362d]',
-  'split-list': 'border-t border-white/10', 'split-row': 'grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-white/10 px-[25px] py-[15px] max-[560px]:px-5 [&>div:nth-child(2)]:grid [&>div:nth-child(2)]:gap-0.5 [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap [&_span]:text-[11px] [&_span]:text-[#9fb8af] [&>strong]:text-[#95e2bb]', avatar: 'grid size-[34px] place-items-center rounded-full bg-[#86d9b1] font-extrabold text-[#173f34]',
-  'calculation-details': 'border-t border-white/10 px-[25px] py-4 text-xs text-[#c4d5cf] max-[560px]:px-5 [&_summary]:flex [&_summary]:min-h-11 [&_summary]:cursor-pointer [&_summary]:items-center [&_summary]:justify-between [&_summary]:font-extrabold [&_summary]:text-white [&_summary]:marker:content-none [&_summary::-webkit-details-marker]:hidden [&_summary_svg]:transition-transform [&[open]_summary_svg]:rotate-180',
-  'calculation-content': 'grid gap-4 pb-1 pt-3 leading-5 [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:text-[#83d0ad] [&_p]:mb-0',
-  'formula-box': 'rounded-lg bg-white/[.07] p-3 font-mono text-[11px] text-[#e5f1ec]',
-  'allocation-list': 'grid gap-2', 'allocation-row': 'rounded-lg border border-white/10 p-3 [&_strong]:text-white [&_span]:mt-1 [&_span]:block [&_span]:text-[#a9c1b8]',
-  'share-area': 'border-t border-white/10 px-[25px] py-5 max-[560px]:px-5',
-  'share-button': 'inline-flex min-h-[45px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#9be5c1]/40 bg-[#80d6ac] px-[18px] py-2.5 font-extrabold text-[#163b30] hover:not-disabled:bg-[#96e2bc]',
-  'share-status': 'mb-0 mt-2.5 text-center text-xs text-[#b8cbc4]', 'share-error': '!text-[#ffe4a3]',
-  'loading-screen': 'grid min-h-screen place-content-center justify-items-center gap-3 text-[#47604f] [&_svg]:size-8',
-  'mobile-result-action': 'fixed inset-x-3 bottom-3 z-20 hidden min-h-[52px] items-center justify-center gap-2 rounded-xl bg-[#173f34] px-5 font-extrabold text-white no-underline shadow-[0_10px_30px_rgba(18,59,47,.3)] max-[560px]:flex',
-}
-
-function classes(names: string): string {
-  return names.split(/\s+/).flatMap((name) => [name, styles[name] ?? '']).filter(Boolean).join(' ')
-}
-
-function numberFromInput(value: string): number | null {
-  return value.trim() === '' ? null : Number(value)
-}
-
-function displayNumber(value: number | null, convert: (value: number) => number): string | number {
-  if (value === null) return ''
-  return Number(convert(value).toFixed(6))
-}
-
-function recordId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function cloneDraft(source: TripDraft, template = false): TripDraft {
-  const stopIds = new Map(source.stops.map(({ id }) => [id, recordId()]))
-  const legIds = new Map(source.legs.map(({ id }) => [id, recordId()]))
-  const personIds = new Map(source.people.map(({ id }) => [id, recordId()]))
-  const now = new Date().toISOString()
-  return {
-    ...structuredClone(source),
-    stops: source.stops.map((stop) => ({ ...stop, id: stopIds.get(stop.id)! })),
-    legs: source.legs.map((leg) => ({ ...leg, id: legIds.get(leg.id)!, fromStopId: stopIds.get(leg.fromStopId)!, toStopId: stopIds.get(leg.toStopId)! })),
-    people: template ? [] : source.people.map((person) => ({ ...person, id: personIds.get(person.id)!, assignedLegIds: person.assignedLegIds.map((id) => legIds.get(id)!).filter(Boolean) })),
-    expenses: template ? [] : (source.expenses ?? []).map((expense) => ({ ...expense, id: recordId(), ...(expense.legId ? { legId: legIds.get(expense.legId) } : {}), personIds: expense.personIds.map((id) => personIds.get(id)!).filter(Boolean) })),
-    updatedAt: now,
-  }
-}
-
-function routeSummary(draft: TripDraft): string {
-  const names = draft.stops.map(({ name }) => name.trim()).filter(Boolean)
-  return names.length ? names.join(' → ') : 'Route not named yet'
-}
-
-function validationErrors(draft: TripDraft): ErrorMap {
-  const result = editableTripDraftSchema.safeParse(draft)
-  if (result.success) return {}
-  return Object.fromEntries(result.error.issues.map((issue) => [issue.path.join('.'), issue.message]))
-}
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null
-  return <p className={classes("field-error")} id={id} role="alert"><CircleAlert size={14} />{message}</p>
-}
-
-function IconButton({ label, disabled, destructive = false, onClick, children }: {
-  label: string
-  disabled?: boolean
-  destructive?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return <button className={classes(`icon-button${destructive ? ' destructive-button' : ''}`)} type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}>{children}</button>
-}
 
 function App() {
   const { themePreference, cycleTheme } = useThemePreference()
@@ -231,13 +82,6 @@ function App() {
   const [vehicleEconomy, setVehicleEconomy] = useState('')
   const [vehicleFuelType, setVehicleFuelType] = useState('')
   const [vehicleUnits, setVehicleUnits] = useState<UnitSystem>('metric')
-  const [mapDialog, setMapDialog] = useState<MapDialog>(null)
-  const [fromSuggestions, setFromSuggestions] = useState<PlaceSuggestion[]>([])
-  const [toSuggestions, setToSuggestions] = useState<PlaceSuggestion[]>([])
-  const [selectedFrom, setSelectedFrom] = useState('')
-  const [selectedTo, setSelectedTo] = useState('')
-  const [mapStatus, setMapStatus] = useState<'idle' | 'searching' | 'routing'>('idle')
-  const [mapError, setMapError] = useState('')
   const [newTripTemplateId, setNewTripTemplateId] = useState('')
   const [tripName, setTripName] = useState('')
   const [libraryMessage, setLibraryMessage] = useState('')
@@ -258,57 +102,12 @@ function App() {
   const currencies = useMemo(() => currencyOptions(), [])
   const hasResult = result !== null
   const { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments } = useTripEditor(draft, setDraft)
+  const { mapDialog, setMapDialog, fromSuggestions, toSuggestions, selectedFrom, setSelectedFrom, selectedTo, setSelectedTo, mapStatus, mapError, showMapDialog, findPlaces, applyRoadDistance } = useRouteLookup(draft, update, stopsById)
   const calculationLegs = result ? draft.legs.map((leg) => {
     const riders = draft.people.filter((person) => person.assignedLegIds.includes(leg.id))
     const cost = (leg.distanceKm ?? 0) / draft.fuelSettings.fuelEconomyKmpl! * draft.fuelSettings.fuelPricePerLitre!
     return { leg, riders, cost }
   }) : []
-
-  function showMapDialog(legId: string) {
-    const leg = draft.legs.find((item) => item.id === legId)
-    if (!leg) return
-    setMapDialog({ legId, fromQuery: stopsById.get(leg.fromStopId) ?? '', toQuery: stopsById.get(leg.toStopId) ?? '' })
-    setFromSuggestions([]); setToSuggestions([]); setSelectedFrom(''); setSelectedTo(''); setMapError(''); setMapStatus('idle')
-  }
-
-  async function findPlaces() {
-    if (!mapDialog?.fromQuery.trim() || !mapDialog.toQuery.trim()) {
-      setMapError('Enter both place names before searching.')
-      return
-    }
-    setMapStatus('searching'); setMapError('')
-    try {
-      // Searches are deliberately sequential to respect the public geocoder's usage limits.
-      const from = await openRouteProvider.searchPlaces(mapDialog.fromQuery)
-      await new Promise((resolve) => window.setTimeout(resolve, 1000))
-      const to = await openRouteProvider.searchPlaces(mapDialog.toQuery)
-      setFromSuggestions(from); setToSuggestions(to); setSelectedFrom(from[0]?.id ?? ''); setSelectedTo(to[0]?.id ?? '')
-      if (!from.length || !to.length) setMapError('No matching places were found. Refine the names or keep entering the distance manually.')
-    } catch (error) {
-      setMapError(error instanceof Error ? error.message : 'Place search failed. Your existing trip is unchanged.')
-    } finally { setMapStatus('idle') }
-  }
-
-  async function applyRoadDistance() {
-    if (!mapDialog) return
-    const from = fromSuggestions.find(({ id }) => id === selectedFrom)
-    const to = toSuggestions.find(({ id }) => id === selectedTo)
-    if (!from || !to) { setMapError('Choose an origin and destination suggestion first.'); return }
-    setMapStatus('routing'); setMapError('')
-    try {
-      const distanceKm = await openRouteProvider.roadDistanceKm(from, to)
-      const leg = draft.legs.find(({ id }) => id === mapDialog.legId)
-      if (!leg) return
-      update({
-        ...draft,
-        stops: draft.stops.map((stop) => stop.id === leg.fromStopId ? { ...stop, name: from.label } : stop.id === leg.toStopId ? { ...stop, name: to.label } : stop),
-        legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm, distanceSource: 'lookup' } : item),
-      })
-      setMapDialog(null)
-    } catch (error) {
-      setMapError(error instanceof Error ? error.message : 'Route lookup failed. Your existing trip is unchanged.')
-    } finally { setMapStatus('idle') }
-  }
 
   useEffect(() => {
     const updateAssignmentLayout = () => setMobileAssignments(window.innerWidth <= 560)
