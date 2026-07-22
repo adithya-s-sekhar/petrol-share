@@ -52,6 +52,67 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
+test('uses semantic surfaces for expanded expenses and dialogs in both themes and layouts', async ({ page }) => {
+  test.setTimeout(90_000)
+
+  const semanticColor = async (token: string) => page.evaluate((name) => {
+    const probe = document.createElement('span')
+    probe.style.color = `var(${name})`
+    document.body.append(probe)
+    const color = getComputedStyle(probe).color
+    probe.remove()
+    return color
+  }, token)
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => localStorage.setItem('petrol-share-theme', value), theme)
+    await page.reload()
+
+    await page.getByRole('button', { name: 'Add person' }).click()
+    await page.getByLabel('Person 1 name').fill('Asha')
+    await page.getByRole('button', { name: 'Add expense' }).click()
+    await page.getByLabel('Expense 1 name').fill('Parking')
+    await page.getByLabel('Parking applies to').getByLabel('Selected riders').check()
+
+    for (const width of [320, 390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      const expense = page.getByRole('article', { name: 'Parking' })
+      const rider = expense.locator('label').filter({ has: page.getByLabel('Asha shares Parking') })
+      await expect(expense).toHaveCSS('background-color', await semanticColor('--color-elevated'))
+      await expect(rider).toHaveCSS('background-color', await semanticColor('--color-panel'))
+      await page.getByRole('button', { name: 'US customary' }).click()
+      await expect(page.getByRole('button', { name: 'US customary' })).toHaveCSS('background-color', await semanticColor('--color-selected'))
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+
+    await page.getByRole('button', { name: 'Reset trip' }).click()
+    const resetDialog = page.getByRole('alertdialog', { name: 'Reset the complete trip?' })
+    await expect(resetDialog).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    await expect(resetDialog.getByRole('button', { name: 'Cancel' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await resetDialog.getByRole('button', { name: 'Cancel' }).click()
+
+    await page.getByRole('button', { name: 'Trips' }).click()
+    await page.getByRole('button', { name: 'New trip' }).click()
+    await expect(page.getByRole('dialog', { name: 'Create a new trip' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Save vehicle preset' }).click()
+    await expect(page.getByRole('dialog', { name: 'Save vehicle preset' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    await page.getByRole('button', { name: 'Look up road distance' }).first().click()
+    const roadDialog = page.getByRole('dialog', { name: 'Look up road distance' })
+    await expect(roadDialog).toHaveCSS('background-color', await semanticColor('--color-panel'))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await roadDialog.getByRole('button', { name: 'Cancel' }).click()
+
+    await page.getByRole('button', { name: 'Reset trip' }).click()
+    await page.getByRole('alertdialog', { name: 'Reset the complete trip?' }).getByRole('button', { name: 'Reset trip' }).click()
+    await expect(page.getByLabel('Stop 1 name')).toHaveValue('')
+  }
+})
+
 test('keeps header actions separate at the narrowest supported viewport', { tag: '@cross-browser' }, async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 })
   const trips = page.getByRole('button', { name: 'Trips' })
