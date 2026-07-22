@@ -5,6 +5,12 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('loads the bundled Inter font', async ({ page }) => {
+  await expect.poll(() => page.evaluate(() => document.fonts.check('16px "Inter Variable"'))).toBe(true)
+  await expect(page.locator('html')).toHaveCSS('font-family', /Inter Variable/)
+  expect(await page.evaluate(() => performance.getEntriesByType('resource').some(({ name }) => name.includes('inter-latin-wght-normal') && name.endsWith('.woff2')))).toBe(true)
+})
+
 test('shows the Codex credit across themes and layouts', async ({ page }, testInfo) => {
   const footer = page.locator('footer')
   const credit = footer.getByRole('link', { name: 'Made with Codex' })
@@ -242,6 +248,82 @@ test('adds, assigns, edits, persists, and removes additional expenses', async ({
   await expect(page.locator('#results').getByText('₹160.00', { exact: true }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Remove Parking' }).click()
   await expect(page.getByLabel('Expense 1 name')).toHaveCount(0)
+})
+
+test('copies or shares an individual settlement without exposing other riders', async ({ page }, testInfo) => {
+  test.setTimeout(90_000)
+  await page.evaluate(() => {
+    Object.defineProperties(navigator, {
+      share: { configurable: true, value: undefined },
+      clipboard: {
+        configurable: true,
+        value: {
+          writeText: (text: string) => {
+            ;(window as Window & { copiedSettlement?: string }).copiedSettlement = text
+            return Promise.resolve()
+          },
+        },
+      },
+    })
+  })
+
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('16.09344')
+  await page.getByLabel('Fuel economy').fill('10')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 2 name').fill('Binu')
+  await page.getByLabel('Asha rode from Home to Office').check()
+  await page.getByLabel('Binu rode from Home to Office').check()
+  await page.getByRole('button', { name: 'US customary' }).click()
+
+  await page.getByRole('button', { name: 'Copy Asha settlement' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Settlement copied.' })).toBeVisible()
+  const copied = await page.evaluate(() => (window as Window & { copiedSettlement?: string }).copiedSettlement)
+  expect(copied).toContain('Untitled trip: Asha owes ₹80.47')
+  expect(copied).toContain('10 mi across 1 leg')
+  expect(copied).not.toContain('Binu')
+
+  const results = page.locator('#results')
+  const settlementList = results.locator('.split-list')
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await results.scrollIntoViewIfNeeded()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      for (const button of await results.getByRole('button', { name: /Copy .* settlement/ }).all()) {
+        const box = await button.boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.x).toBeGreaterThanOrEqual(0)
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width)
+      }
+      await settlementList.screenshot({ path: testInfo.outputPath(`individual-settlements-${theme}-${width}.png`) })
+    }
+  }
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: (data: ShareData) => {
+        ;(window as Window & { sharedSettlement?: ShareData }).sharedSettlement = data
+        return Promise.resolve()
+      },
+    })
+  })
+  await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: /Build your route/ }).click()
+  await page.getByRole('button', { name: 'US customary' }).click()
+  await page.getByRole('button', { name: 'Share Binu settlement' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Settlement shared.' })).toBeVisible()
+  const shared = await page.evaluate(() => (window as Window & { sharedSettlement?: ShareData }).sharedSettlement?.text)
+  expect(shared).toContain('Binu owes ₹80.46')
+  expect(shared).toContain('10 mi across 1 leg')
+  expect(shared).not.toContain('Asha')
 })
 
 test('keeps additional-expense controls within a mobile viewport after scope changes', { tag: '@cross-browser' }, async ({ page }) => {

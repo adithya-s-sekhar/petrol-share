@@ -28,7 +28,7 @@ function write(context: CanvasRenderingContext2D, text: string, x: number, y: nu
   align?: CanvasTextAlign
 } = {}) {
   context.fillStyle = options.color ?? '#ffffff'
-  context.font = options.font ?? '700 34px Inter, system-ui, sans-serif'
+  context.font = options.font ?? '700 34px "Inter Variable", Inter, system-ui, sans-serif'
   context.textAlign = options.align ?? 'left'
   context.fillText(text, x, y)
 }
@@ -56,29 +56,29 @@ export function createSummaryImage({ result, currency, unassignedLegNames, pageU
   context.fillStyle = '#173f34'
   context.fillRect(0, 0, CARD_WIDTH, cardHeight)
 
-  write(context, 'YOUR SPLIT', PADDING, 80, { color: '#83d0ad', font: '800 24px Inter, system-ui, sans-serif' })
-  write(context, 'Journey summary', PADDING, 137, { font: '500 52px Georgia, serif' })
-  write(context, 'Petrol Share', CARD_WIDTH - PADDING, 112, { color: '#83d0ad', font: '800 27px Inter, system-ui, sans-serif', align: 'right' })
+  write(context, 'YOUR SPLIT', PADDING, 80, { color: '#83d0ad', font: '800 24px "Inter Variable", Inter, system-ui, sans-serif' })
+  write(context, 'Journey summary', PADDING, 137, { font: '500 52px "Inter Variable", Inter, system-ui, sans-serif' })
+  write(context, 'Petrol Share', CARD_WIDTH - PADDING, 112, { color: '#83d0ad', font: '800 27px "Inter Variable", Inter, system-ui, sans-serif', align: 'right' })
 
   context.fillStyle = 'rgba(255,255,255,.12)'
   context.fillRect(PADDING, 176, CARD_WIDTH - PADDING * 2, 2)
-  write(context, 'TOTAL DISTANCE', PADDING, 230, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
+  write(context, 'TOTAL DISTANCE', PADDING, 230, { color: '#a9c1b8', font: '700 22px "Inter Variable", Inter, system-ui, sans-serif' })
   write(context, `${result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km`, PADDING, 280)
-  write(context, 'FUEL USED', CARD_WIDTH / 2 + 20, 230, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
+  write(context, 'FUEL USED', CARD_WIDTH / 2 + 20, 230, { color: '#a9c1b8', font: '700 22px "Inter Variable", Inter, system-ui, sans-serif' })
   write(context, `${result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L`, CARD_WIDTH / 2 + 20, 280)
-  write(context, 'FUEL + ADDITIONAL EXPENSES', PADDING, 335, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
-  write(context, `${formatCurrency(result.totalFuelCost, currency)} + ${formatCurrency(result.totalAdditionalCost, currency)}`, PADDING, 375, { color: '#c4d5cf', font: '700 28px Inter, system-ui, sans-serif' })
-  write(context, 'JOURNEY TOTAL', PADDING, 415, { color: '#a9c1b8', font: '700 22px Inter, system-ui, sans-serif' })
-  write(context, formatCurrency(result.totalCost, currency), CARD_WIDTH - PADDING, 420, { color: '#88dfb5', font: '500 58px Georgia, serif', align: 'right' })
+  write(context, 'FUEL + ADDITIONAL EXPENSES', PADDING, 335, { color: '#a9c1b8', font: '700 22px "Inter Variable", Inter, system-ui, sans-serif' })
+  write(context, `${formatCurrency(result.totalFuelCost, currency)} + ${formatCurrency(result.totalAdditionalCost, currency)}`, PADDING, 375, { color: '#c4d5cf', font: '700 28px "Inter Variable", Inter, system-ui, sans-serif' })
+  write(context, 'JOURNEY TOTAL', PADDING, 415, { color: '#a9c1b8', font: '700 22px "Inter Variable", Inter, system-ui, sans-serif' })
+  write(context, formatCurrency(result.totalCost, currency), CARD_WIDTH - PADDING, 420, { color: '#88dfb5', font: '500 58px "Inter Variable", Inter, system-ui, sans-serif', align: 'right' })
   const activeRules = [...new Set(result.allocationRules.map(({ description }) => description))].join(' · ')
-  write(context, `Split rule: ${activeRules}`, PADDING, 455, { color: '#a9c1b8', font: '600 19px Inter, system-ui, sans-serif' })
+  write(context, `Split rule: ${activeRules}`, PADDING, 455, { color: '#a9c1b8', font: '600 19px "Inter Variable", Inter, system-ui, sans-serif' })
 
   if (hasWarning) {
     context.fillStyle = 'rgba(235,171,51,.15)'
     roundedRect(context, PADDING, 470, CARD_WIDTH - PADDING * 2, cardHeight - 600, 18)
-    write(context, 'Some legs have no riders', PADDING + 30, 522, { color: '#fff0c8', font: '800 27px Inter, system-ui, sans-serif' })
+    write(context, 'Some legs have no riders', PADDING + 30, 522, { color: '#fff0c8', font: '800 27px "Inter Variable", Inter, system-ui, sans-serif' })
     unassignedLegNames.forEach((name, index) => {
-      write(context, `•  ${name}`, PADDING + 30, 582 + index * ROW_HEIGHT, { color: '#ffe4a3', font: '600 27px Inter, system-ui, sans-serif' })
+      write(context, `•  ${name}`, PADDING + 30, 582 + index * ROW_HEIGHT, { color: '#ffe4a3', font: '600 27px "Inter Variable", Inter, system-ui, sans-serif' })
     })
   } else {
     context.fillStyle = 'rgba(255,255,255,.12)'
@@ -89,10 +89,10 @@ export function createSummaryImage({ result, currency, unassignedLegNames, pageU
       context.beginPath()
       context.arc(PADDING + 30, rowY + 53, 30, 0, Math.PI * 2)
       context.fill()
-      write(context, person.personName.charAt(0).toUpperCase(), PADDING + 30, rowY + 64, { color: '#173f34', font: '800 30px Inter, system-ui, sans-serif', align: 'center' })
-      write(context, person.personName, PADDING + 82, rowY + 48, { font: '700 29px Inter, system-ui, sans-serif' })
-      write(context, `Fuel ${formatCurrency(person.fuelCost, currency)} + expenses ${formatCurrency(person.expenseCost, currency)}`, PADDING + 82, rowY + 79, { color: '#9fb8af', font: '500 21px Inter, system-ui, sans-serif' })
-      write(context, formatCurrency(person.displayCost, currency), CARD_WIDTH - PADDING, rowY + 64, { color: '#95e2bb', font: '800 31px Inter, system-ui, sans-serif', align: 'right' })
+      write(context, person.personName.charAt(0).toUpperCase(), PADDING + 30, rowY + 64, { color: '#173f34', font: '800 30px "Inter Variable", Inter, system-ui, sans-serif', align: 'center' })
+      write(context, person.personName, PADDING + 82, rowY + 48, { font: '700 29px "Inter Variable", Inter, system-ui, sans-serif' })
+      write(context, `Fuel ${formatCurrency(person.fuelCost, currency)} + expenses ${formatCurrency(person.expenseCost, currency)}`, PADDING + 82, rowY + 79, { color: '#9fb8af', font: '500 21px "Inter Variable", Inter, system-ui, sans-serif' })
+      write(context, formatCurrency(person.displayCost, currency), CARD_WIDTH - PADDING, rowY + 64, { color: '#95e2bb', font: '800 31px "Inter Variable", Inter, system-ui, sans-serif', align: 'right' })
     })
   }
 
@@ -100,7 +100,7 @@ export function createSummaryImage({ result, currency, unassignedLegNames, pageU
   context.fillRect(PADDING, cardHeight - 72, CARD_WIDTH - PADDING * 2, 2)
   write(context, createShareMessage(pageUrl), CARD_WIDTH / 2, cardHeight - 30, {
     color: '#9fb8af',
-    font: '600 20px Inter, system-ui, sans-serif',
+    font: '600 20px "Inter Variable", Inter, system-ui, sans-serif',
     align: 'center',
   })
 

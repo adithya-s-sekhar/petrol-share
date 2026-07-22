@@ -1,13 +1,48 @@
-import type { Ref } from 'react'
-import { ArrowRight, ChevronDown, CircleAlert, Fuel, Share2 } from 'lucide-react'
-import { distanceFromKm, formatCurrency, unitLabels, volumeFromLitres, type TripDraft, type TripResult, type UnitSystem } from '../../../domain'
+import { useEffect, useState, type Ref } from 'react'
+import { ArrowRight, ChevronDown, CircleAlert, Copy, Fuel, Share2 } from 'lucide-react'
+import { distanceFromKm, formatCurrency, unitLabels, volumeFromLitres, type PersonResult, type TripDraft, type TripResult, type UnitSystem } from '../../../domain'
+import { createSettlementMessage, shareSettlement } from '../../../settlementSharing'
 import { layout } from '../../designSystem'
 import { Button } from '../ui/AppControls'
 
 type ShareStatus = 'idle' | 'sharing' | 'shared' | 'downloaded' | 'error'
-type Props = { draft: TripDraft; result: TripResult | null; unitSystem: UnitSystem; stopsById: Map<string, string>; panelRef: Ref<HTMLElement>; shareStatus: ShareStatus; shareError: string; shareMessageCopied: boolean; onReveal: () => void; onShare: () => void }
+type Props = { draft: TripDraft; tripName: string; result: TripResult | null; unitSystem: UnitSystem; stopsById: Map<string, string>; panelRef: Ref<HTMLElement>; shareStatus: ShareStatus; shareError: string; shareMessageCopied: boolean; onReveal: () => void; onShare: () => void }
 
-export function ResultsPanel({ draft, result, unitSystem, stopsById, panelRef, shareStatus, shareError, shareMessageCopied, onReveal, onShare }: Props) {
+type SettlementStatus = 'idle' | 'sharing' | 'shared' | 'copied' | 'error'
+
+function SettlementAction({ tripName, person, currency, unitSystem }: { tripName: string; person: PersonResult; currency: string; unitSystem: UnitSystem }) {
+  const [status, setStatus] = useState<SettlementStatus>('idle')
+  const canShare = typeof navigator !== 'undefined' && Boolean(navigator.share)
+
+  useEffect(() => setStatus('idle'), [currency, person.displayCost, person.distanceKm, person.expenseCost, person.fuelCost, person.legIds.length, tripName, unitSystem])
+
+  async function handleSettlement() {
+    if (status === 'sharing') return
+    setStatus('sharing')
+    try {
+      const message = createSettlementMessage({ tripName, person, currency, unitSystem })
+      setStatus(await shareSettlement(message))
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setStatus('idle')
+        return
+      }
+      setStatus('error')
+    }
+  }
+
+  const action = canShare ? 'Share' : 'Copy'
+  return <div className={layout('settlement-action')}>
+    <Button variant="quiet" disabled={status === 'sharing'} aria-label={`${action} ${person.personName} settlement`} onClick={() => void handleSettlement()}>
+      {canShare ? <Share2 /> : <Copy />}{status === 'sharing' ? 'Working…' : action}
+    </Button>
+    {status === 'shared' && <span role="status">Settlement shared.</span>}
+    {status === 'copied' && <span role="status">Settlement copied.</span>}
+    {status === 'error' && <span role="alert">Could not share or copy. Check browser permissions and try again.</span>}
+  </div>
+}
+
+export function ResultsPanel({ draft, tripName, result, unitSystem, stopsById, panelRef, shareStatus, shareError, shareMessageCopied, onReveal, onShare }: Props) {
   const units = unitLabels(unitSystem)
   const calculationLegs = result ? draft.legs.map((leg) => { const riders = draft.people.filter((person) => person.assignedLegIds.includes(leg.id)); const cost = (leg.distanceKm ?? 0) / draft.fuelSettings.fuelEconomyKmpl! * draft.fuelSettings.fuelPricePerLitre!; const rule = result.allocationRules.find((candidate) => candidate.legId === leg.id)?.description ?? 'Equal split'; return { leg, riders, cost, rule } }) : []
   return <section ref={panelRef} id="results" className={layout('results-card')} aria-labelledby="results-title" aria-live="polite">
@@ -15,7 +50,7 @@ export function ResultsPanel({ draft, result, unitSystem, stopsById, panelRef, s
     {!result ? <div className={layout('results-empty')}><p>Complete the trip details to see your fair split. Once they are valid, the split updates automatically.</p><Button variant="primary" className="mt-2 w-full" onClick={onReveal}>Check trip details <ArrowRight /></Button></div> : <>
       <div className={layout('totals')}><div><span>Total distance</span><strong>{distanceFromKm(result.totalDistanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.distance}</strong></div><div><span>Fuel used</span><strong>{volumeFromLitres(result.totalLitres, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} {units.volume}</strong></div>{result.totalAdditionalCost > 0 && <><div><span>Fuel cost</span><strong>{formatCurrency(result.totalFuelCost, draft.fuelSettings.currency)}</strong></div><div><span>Additional expenses</span><strong>{formatCurrency(result.totalAdditionalCost, draft.fuelSettings.currency)}</strong></div></>}<div className={layout('total-cost')}><span>{result.totalAdditionalCost > 0 ? 'Journey total' : 'Total fuel cost'}</span><strong>{formatCurrency(result.totalCost, draft.fuelSettings.currency)}</strong></div></div>
       <p className={layout('live-result-note')}>This split updates automatically as you edit trip details.</p>
-      {result.unassignedLegIds.length > 0 || result.unassignedExpenseIds.length > 0 ? <div className={layout('notice warning-notice')} role="status"><CircleAlert /><div><strong>{result.unassignedExpenseIds.length === 0 ? 'Some legs have no riders' : 'Some costs have no riders'}</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{result.unassignedExpenseIds.length > 0 && 'Leg: '}{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}{result.unassignedExpenseIds.map((id) => <li key={id}>Expense: {(draft.expenses ?? []).find((expense) => expense.id === id)?.name || 'Unnamed expense'}</li>)}</ul></div></div> : <div className={layout('split-list')}>{result.people.map((person) => <div className={layout('split-row')} key={person.personId}><div className={layout('avatar')} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div><strong>{person.personName}</strong><span>{result.totalAdditionalCost > 0 ? `Fuel ${formatCurrency(person.fuelCost, draft.fuelSettings.currency)} + expenses ${formatCurrency(person.expenseCost, draft.fuelSettings.currency)}` : `${distanceFromKm(person.distanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${units.distance} · ${person.legIds.length} ${person.legIds.length === 1 ? 'leg' : 'legs'}`}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong></div>)}</div>}
+      {result.unassignedLegIds.length > 0 || result.unassignedExpenseIds.length > 0 ? <div className={layout('notice warning-notice')} role="status"><CircleAlert /><div><strong>{result.unassignedExpenseIds.length === 0 ? 'Some legs have no riders' : 'Some costs have no riders'}</strong><ul>{result.unassignedLegIds.map((id) => { const leg = draft.legs.find((item) => item.id === id)!; return <li key={id}>{result.unassignedExpenseIds.length > 0 && 'Leg: '}{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</li> })}{result.unassignedExpenseIds.map((id) => <li key={id}>Expense: {(draft.expenses ?? []).find((expense) => expense.id === id)?.name || 'Unnamed expense'}</li>)}</ul></div></div> : <div className={layout('split-list')}>{result.people.map((person) => <div className={layout('split-row')} key={person.personId}><div className={layout('avatar')} aria-hidden="true">{person.personName.charAt(0).toUpperCase()}</div><div className={layout('settlement-person')}><strong>{person.personName}</strong><span>{result.totalAdditionalCost > 0 ? `Fuel ${formatCurrency(person.fuelCost, draft.fuelSettings.currency)} + expenses ${formatCurrency(person.expenseCost, draft.fuelSettings.currency)}` : `${distanceFromKm(person.distanceKm, unitSystem).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${units.distance} · ${person.legIds.length} ${person.legIds.length === 1 ? 'leg' : 'legs'}`}</span></div><strong>{formatCurrency(person.displayCost, draft.fuelSettings.currency)}</strong><SettlementAction tripName={tripName} person={person} currency={draft.fuelSettings.currency} unitSystem={unitSystem} /></div>)}</div>}
       <details className={layout('calculation-details')}><summary>How this was calculated <ChevronDown aria-hidden="true" /></summary><div className={layout('calculation-content')}><section><h3>Route totals and formula</h3><p>{result.totalDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 2 })} km ÷ {draft.fuelSettings.fuelEconomyKmpl!.toLocaleString()} km/L = {result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L</p><p>{result.totalLitres.toLocaleString(undefined, { maximumFractionDigits: 2 })} L × {formatCurrency(draft.fuelSettings.fuelPricePerLitre!, draft.fuelSettings.currency)} per litre = {formatCurrency(result.totalFuelCost, draft.fuelSettings.currency)}</p><p>Fuel {formatCurrency(result.totalFuelCost, draft.fuelSettings.currency)} + expenses {formatCurrency(result.totalAdditionalCost, draft.fuelSettings.currency)} = {formatCurrency(result.totalCost, draft.fuelSettings.currency)}</p></section><div className={layout('formula-box')}>Each rider’s total = the active split rule for each leg + fixed expenses assigned to them</div><section><h3>Per-leg allocation</h3><div className={layout('allocation-list')}>{calculationLegs.map(({ leg, riders, cost, rule }) => <div className={layout('allocation-row')} key={leg.id}><strong>{stopsById.get(leg.fromStopId)} → {stopsById.get(leg.toStopId)}</strong><span>{leg.distanceKm!.toLocaleString()} km · {formatCurrency(cost, draft.fuelSettings.currency)} · {riders.length === 0 ? 'No riders assigned' : rule === 'Equal split' ? `${formatCurrency(cost / riders.length, draft.fuelSettings.currency)} each for ${riders.map(({ name }) => name).join(', ')}` : rule}</span></div>)}</div></section><section><h3>Rounding</h3><p>Calculations keep full precision. Displayed shares use the currency’s minor units, then any leftover units go to the largest fractional remainders (ties follow rider order) so the displayed shares add up exactly to the rounded total.</p></section></div></details>
       <div className={layout('share-area')}><Button variant="primary" className="w-full" disabled={shareStatus === 'sharing'} onClick={onShare}><Share2 />{shareStatus === 'sharing' ? 'Preparing summary…' : 'Share summary'}</Button>{shareStatus === 'shared' && <p className={layout('share-status')} role="status">Summary shared.</p>}{shareStatus === 'downloaded' && <p className={layout('share-status')} role="status">Summary image downloaded.{shareMessageCopied ? ' Message copied to clipboard.' : ''}</p>}{shareStatus === 'error' && <p className={layout('share-status share-error')} role="alert">{shareError}</p>}</div>
     </>}
