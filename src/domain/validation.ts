@@ -44,6 +44,7 @@ const fuelSettingsSchema = z.object({
   fuelEconomyKmpl: nullablePositiveNumberSchema,
   fuelPricePerLitre: nullablePositiveNumberSchema,
   currency: currencySchema,
+  fuelType: z.string().trim().optional(),
 })
 
 const tripShapeSchema = z.object({

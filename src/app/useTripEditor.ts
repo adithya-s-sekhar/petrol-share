@@ -24,6 +24,14 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
     changeStops([...draft.stops, { id: createId(), name: stop.name.trim() }])
   }
 
+  function makeRoundTrip() {
+    const returnStops = draft.stops.slice(0, -1).reverse().map((stop) => ({
+      id: createId(),
+      name: stop.name.trim(),
+    }))
+    changeStops([...draft.stops, ...returnStops])
+  }
+
   function reuseLegDistanceForBlankReverse(legId: string) {
     const changedLeg = draft.legs.find((leg) => leg.id === legId)
     if (!changedLeg) return
@@ -76,5 +84,5 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
     })
   }
 
-  return { stopsById, update, changeStops, addStop, returnToStop, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments }
+  return { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments }
 }
