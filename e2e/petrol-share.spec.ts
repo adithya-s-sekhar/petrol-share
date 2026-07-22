@@ -794,6 +794,10 @@ test('keeps long route, expense, and rider content readable across responsive la
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 900 })
+    const lookupButton = page.getByRole('button', { name: 'Look up road distance' })
+    const [lookupBox, lookupParentBox] = await Promise.all([lookupButton.boundingBox(), lookupButton.locator('..').boundingBox()])
+    expect(lookupBox!.x).toBeGreaterThanOrEqual(lookupParentBox!.x)
+    expect(lookupBox!.x + lookupBox!.width).toBeLessThanOrEqual(lookupParentBox!.x + lookupParentBox!.width)
     const route = page.getByRole('region', {
       name: `Riders from ${from} to ${to}`,
     })
@@ -927,4 +931,34 @@ test('contains and restores focus for the mobile trips drawer and road dialog', 
   await dialog.getByRole('button', { name: 'Close road distance dialog' }).click()
   await expect(lookup).toBeFocused()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('uses consistent design-system controls and organized saved-trip actions', async ({ page }, testInfo) => {
+  test.setTimeout(90_000)
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => localStorage.setItem('petrol-share-theme', value), theme)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.reload()
+    await page.getByRole('button', { name: 'Trips' }).click()
+
+    const library = page.locator('section[aria-labelledby="trip-library-title"]')
+    const primaryActions = library.locator('.library-actions').first().locator('button, label')
+    const heights = await primaryActions.evaluateAll((controls) => controls.map((control) => control.getBoundingClientRect().height))
+    const fontSizes = await primaryActions.evaluateAll((controls) => controls.map((control) => getComputedStyle(control).fontSize))
+    expect(new Set(heights).size).toBe(1)
+    expect(new Set(fontSizes).size).toBe(1)
+    expect(heights[0]).toBeGreaterThanOrEqual(44)
+
+    const tripActions = library.locator('.trip-card-actions').first()
+    await expect(tripActions).toHaveCSS('display', 'grid')
+    const actionColumns = await tripActions.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)
+    expect(actionColumns).toBe(2)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await library.screenshot({ path: testInfo.outputPath(`design-system-library-${theme}-mobile.png`) })
+
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await library.screenshot({ path: testInfo.outputPath(`design-system-library-${theme}-desktop.png`) })
+    await library.getByRole('button', { name: 'Close saved trips' }).click()
+  }
 })

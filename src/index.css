@@ -20,6 +20,7 @@
     --color-selected: #e5f4ec;
     --color-selected-border: #4c9d77;
     --color-accent: #17875e;
+    --color-accent-strong: #116f4d;
     --color-accent-hover: #e4f3eb;
     --color-accent-active: #d3eadd;
     --color-destructive: #8f382f;
@@ -126,6 +127,7 @@ html[data-theme="dark"] {
   --color-selected: #1b3a2d;
   --color-selected-border: #61b68c;
   --color-accent: #70d0a5;
+  --color-accent-strong: #4fba8b;
   --color-accent-hover: #20372e;
   --color-accent-active: #29483b;
   --color-destructive: #f0a39a;

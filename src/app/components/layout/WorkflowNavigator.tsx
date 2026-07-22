@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import type { EditorSection } from "../../utils/appViewUtils";
-import { classes } from "../../styles";
+import { layout } from "../../designSystem";
 
 type Props = {
   complete: Record<EditorSection, boolean>;
@@ -15,7 +15,7 @@ const sections: Array<[EditorSection, string]> = [
 
 export function WorkflowNavigator({ complete, onSelect }: Props) {
   return (
-    <nav className={classes("workflow-nav")} aria-label="Trip sections">
+    <nav className={layout("workflow-nav")} aria-label="Trip sections">
       {sections.map(([section, label], index) => (
         <button
           key={section}

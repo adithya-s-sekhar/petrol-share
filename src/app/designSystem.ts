@@ -1,4 +1,11 @@
-export const styles: Record<string, string> = {
+/**
+ * Tailwind recipes for application-specific compositions.
+ *
+ * Reusable controls and surfaces live in components/ui/AppControls. Keeping
+ * layout recipes here gives every feature the same spacing scale while
+ * avoiding CSS selectors that reach into unrelated component markup.
+ */
+export const layoutRecipes: Record<string, string> = {
   'sr-only': 'absolute -m-px size-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]',
   'app-shell': 'min-h-screen bg-[radial-gradient(circle_at_50%_0,#e5f4e9_0,transparent_28rem)] bg-[#f5f7f4] text-[#152a25]',
   'site-header': 'sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#dce5df] bg-white/80 px-[max(20px,calc((100vw-1180px)/2))] backdrop-blur-[14px] max-[560px]:h-[60px] max-[560px]:px-[13px]',
@@ -20,19 +27,19 @@ export const styles: Record<string, string> = {
   'library-backdrop': 'max-[560px]:fixed max-[560px]:inset-0 max-[560px]:z-40 max-[560px]:bg-[#10251f]/55',
   library: 'mx-auto mb-7 w-[min(100%-40px,1132px)] rounded-2xl border border-[#d7e3dc] bg-white p-5 shadow-[0_14px_42px_rgba(24,52,43,.14)] max-[560px]:fixed max-[560px]:inset-y-0 max-[560px]:right-0 max-[560px]:z-50 max-[560px]:m-0 max-[560px]:max-h-[100dvh] max-[560px]:w-[min(92vw,390px)] max-[560px]:overflow-y-auto max-[560px]:rounded-none max-[560px]:border-y-0 max-[560px]:border-r-0 max-[560px]:p-4 max-[560px]:shadow-[-18px_0_48px_rgba(0,0,0,.38)]',
   'library-heading': 'mb-4 flex items-center justify-between gap-3 [&_h2]:m-0 [&_h2]:text-xl [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-sm [&_p]:text-[#6b7974]',
-  'library-actions': 'flex flex-wrap gap-2 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-[#bcd5c8] [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-extrabold [&_button]:text-[#176c4d]',
+  'library-actions': 'mb-4 grid grid-cols-2 gap-2 max-[360px]:grid-cols-1',
   'library-close': 'grid size-11 shrink-0 place-items-center rounded-lg border border-[#c7d8cf] bg-transparent text-[#176c4d] [&_svg]:size-5',
   'library-group': 'mt-5 border-t border-[#dfe6e1] pt-4 [&>h3]:mb-3 [&>h3]:text-sm [&>h3]:uppercase [&>h3]:tracking-wide [&>summary]:min-h-11 [&>summary]:cursor-pointer [&>summary]:font-extrabold',
   'workflow-nav': 'sticky top-[76px] z-[5] mb-4 flex gap-2 overflow-x-auto rounded-xl border p-2 shadow-sm backdrop-blur max-[560px]:top-[68px] max-[560px]:grid max-[560px]:grid-cols-5 max-[560px]:gap-0 max-[560px]:overflow-visible [&_button]:inline-flex [&_button]:min-h-11 [&_button]:shrink-0 [&_button]:items-center [&_button]:gap-2 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-bold max-[560px]:[&_button]:min-w-0 max-[560px]:[&_button]:flex-col max-[560px]:[&_button]:justify-center max-[560px]:[&_button]:gap-0 max-[560px]:[&_button]:px-1 max-[560px]:[&_button]:text-xs [&_button>span]:grid [&_button>span]:size-6 [&_button>span]:place-items-center [&_button>span]:rounded-full max-[560px]:[&_button>span]:size-5 max-[560px]:[&_button>span]:text-[11px] [&_button_svg]:size-4 max-[560px]:[&_button_svg]:size-3.5 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:shrink-0 [&_a]:items-center [&_a]:rounded-lg [&_a]:px-3 [&_a]:font-bold [&_a]:no-underline max-[560px]:[&_a]:min-w-0 max-[560px]:[&_a]:justify-center max-[560px]:[&_a]:px-1 max-[560px]:[&_a]:text-xs',
   'preset-list': 'mt-3 grid gap-2',
-  'preset-row': 'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#dfe6e1] p-3 [&_p]:m-0 [&_p]:text-xs [&_p]:text-[#697772]',
-  'preset-actions': 'flex flex-wrap gap-1 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-[#edf7f1] [&_button]:px-3 [&_button]:font-bold [&_button]:text-[#176c4d] [&_button:last-child]:text-[#963b32]',
+  'preset-row': 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-xl border border-[#dfe6e1] p-4 max-[560px]:grid-cols-1 [&_p]:m-0 [&_p]:text-xs [&_p]:text-[#697772]',
+  'preset-actions': 'grid grid-flow-col auto-cols-fr gap-2 max-[360px]:grid-flow-row',
   'import-error': 'mt-3 rounded-lg border border-[#efc4bd] bg-[#fff0ee] px-3 py-2 text-sm font-semibold text-[#8f382f]',
   'import-preview': 'mt-4 rounded-xl bg-[#f3f7f4] p-4 [&_dl]:m-0 [&_dl]:grid [&_dl]:grid-cols-[auto_1fr] [&_dl]:gap-x-4 [&_dl]:gap-y-2 [&_dt]:font-bold [&_dd]:m-0 [&_dd]:break-words',
   'trip-list': 'mt-4 grid gap-3',
-  'trip-card': 'grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border border-[#dfe6e1] p-4 max-[650px]:grid-cols-1 [&_h3]:m-0 [&_h3]:text-base [&_p]:mb-0 [&_p]:mt-1 [&_p]:text-xs [&_p]:text-[#697772]',
+  'trip-card': 'grid grid-cols-[minmax(0,1fr)_minmax(280px,auto)] gap-4 rounded-xl border border-[#dfe6e1] p-4 max-[760px]:grid-cols-1 [&_h3]:m-0 [&_h3]:text-base [&_p]:mb-0 [&_p]:mt-2 [&_p]:text-sm [&_p]:leading-5 [&_p]:text-[#697772]',
   'trip-card-active': 'border-[#52a37d] bg-[#f0f9f4]',
-  'trip-card-actions': 'flex flex-wrap items-center justify-end gap-1.5 [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:border [&_button]:border-transparent [&_button]:bg-transparent [&_button]:px-2.5 [&_button]:font-bold [&_button]:text-[#176c4d] [&_button:hover]:bg-[#e5f3eb] [&_button:first-child]:border-[#4c9d77] [&_button:first-child]:bg-[#17875e] [&_button:first-child]:text-white [&_button:last-child]:border-[#d99b92] [&_button:last-child]:text-[#963b32]',
+  'trip-card-actions': 'grid grid-cols-2 content-start gap-2 [&>*]:w-full [&>*:last-child:nth-child(odd)]:col-span-full',
   'template-label': 'mb-2 inline-flex rounded-full bg-[#e9efff] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#3c5790]',
   'dialog-input': 'mt-4 grid gap-2 [&_label]:text-sm [&_label]:font-bold [&_input]:min-h-11',
   hero: 'px-0 pb-[50px] pt-[68px] text-center max-[560px]:px-2.5 max-[560px]:pb-[34px] max-[560px]:pt-[43px]',
@@ -132,10 +139,10 @@ export const styles: Record<string, string> = {
   'mobile-result-action': 'pointer-events-auto hidden min-h-[52px] max-w-[calc(100vw-1.5rem)] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#173f34] px-5 font-extrabold text-white no-underline shadow-[0_10px_30px_rgba(18,59,47,.3)] max-[560px]:flex',
 }
 
-export function classes(names: string): string {
+export function layout(names: string): string {
   return names
     .split(/\s+/)
-    .flatMap((name) => [name, styles[name] ?? ''])
+    .flatMap((name) => [name, layoutRecipes[name] ?? ''])
     .filter(Boolean)
     .join(' ')
 }

@@ -10,7 +10,7 @@ import { saveStoredTrip, type StoredTrip } from '../persistence/tripStorage'
 import { loadVehiclePresets, saveVehiclePresets, type VehiclePreset } from '../persistence/vehiclePresetStorage'
 import { createEditableTripLink, deserializeEditableTrip, EditableTripImportError, readEditableTripLink, serializeEditableTrip } from '../tripSharing'
 import { cloneDraft, recordId, routeSummary, validationErrors } from './utils/tripDraftUtils'
-import { classes } from './styles'
+import { layout } from './designSystem'
 import { useRouteLookup } from './hooks/useRouteLookup'
 import { useElementVisibility } from './hooks/useElementVisibility'
 import { useMediaQuery } from './hooks/useMediaQuery'
@@ -452,7 +452,7 @@ export function AppPage() {
 
   if (!hydrated) {
     return (
-      <main className={classes('loading-screen')} aria-busy="true">
+      <main className={layout('loading-screen')} aria-busy="true">
         <Fuel />
         <p role="status">Loading your trip…</p>
       </main>
@@ -463,12 +463,12 @@ export function AppPage() {
   const returnStops = uniqueReturnStops(draft)
 
   return (
-    <div className={classes('app-shell')}>
+    <div className={layout('app-shell')}>
       <AppHeader libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((open) => !open)} onReset={() => setResetDialogOpen(true)} persistenceStatus={persistenceStatus} resetButtonRef={resetButtonRef} themePreference={themePreference} onCycleTheme={cycleTheme} />
 
       <main id="top">
         {(persistenceStatus === 'error' || persistenceStatus === 'recovered') && (
-          <div className={classes('recovery-notice')} role="alert">
+          <div className={layout('recovery-notice')} role="alert">
             <CircleAlert /> <span>{persistenceMessage}</span>
             {persistenceStatus === 'error' && (
               <button type="button" onClick={retryAutosave}>
@@ -478,7 +478,7 @@ export function AppPage() {
           </div>
         )}
         {persistenceStatus === 'migrated' && (
-          <div className={classes('recovery-notice')} role="status">
+          <div className={layout('recovery-notice')} role="status">
             <Save />
             <span>Your previous draft was moved safely into Saved trips.</span>
           </div>
@@ -486,7 +486,7 @@ export function AppPage() {
         {libraryOpen && (
           <div
             ref={libraryRef as React.RefObject<HTMLDivElement>}
-            className={classes('library-backdrop')}
+            className={layout('library-backdrop')}
             role={mobileAssignments ? 'dialog' : undefined}
             aria-modal={mobileAssignments ? 'true' : undefined}
             aria-labelledby={mobileAssignments ? 'trip-library-title' : undefined}
@@ -507,8 +507,8 @@ export function AppPage() {
           onSelect={navigateToSection}
         />
 
-        <div className={classes('editor-grid')}>
-          <div className={classes('editor-column')}>
+        <div className={layout('editor-grid')}>
+          <div className={layout('editor-column')}>
             <RoutePanel
               draft={draft}
               errors={errors}
@@ -568,16 +568,16 @@ export function AppPage() {
             <ExpensesPanel draft={draft} errors={errors} stopsById={stopsById} onChange={changeExpense} onAdd={addExpense} onUpdate={update} />
           </div>
 
-          <aside className={classes('results-column')}>
+          <aside className={layout('results-column')}>
             <AssignmentPanel draft={draft} mobile={mobileAssignments} stopsById={stopsById} onSetAssignment={setLegAssignment} onSetAllAssignments={setAllLegAssignments} onCopyPreviousAssignments={copyLegAssignments} />
 
             <ResultsPanel draft={draft} result={result} unitSystem={unitSystem} stopsById={stopsById} panelRef={resultsRef} shareStatus={shareStatus} shareError={shareError} shareMessageCopied={shareMessageCopied} onReveal={revealResults} onShare={() => void shareResult()} />
           </aside>
         </div>
       </main>
-      <div className={classes('floating-action-stack')}>
+      <div className={layout('floating-action-stack')}>
         {undoRemoval && (
-          <div className={classes('undo-toast')} role="status" aria-live="polite">
+          <div className={layout('undo-toast')} role="status" aria-live="polite">
             <span>{undoRemoval.message}</span>
             <button type="button" onClick={undoLastRemoval}>
               Undo
@@ -585,7 +585,7 @@ export function AppPage() {
           </div>
         )}
         {result && !resultsVisible && (
-          <a className={classes('mobile-result-action')} href="#results">
+          <a className={layout('mobile-result-action')} href="#results">
             View split · {formatCurrency(result.totalCost, draft.fuelSettings.currency)} <ArrowRight size={18} />
           </a>
         )}
@@ -593,13 +593,13 @@ export function AppPage() {
       {resetDialogOpen && (
         <div
           ref={resetDialogRef as React.RefObject<HTMLDivElement>}
-          className={classes('dialog-backdrop')}
+          className={layout('dialog-backdrop')}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeResetDialog()
           }}
         >
           <div
-            className={classes('reset-dialog')}
+            className={layout('reset-dialog')}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="reset-dialog-title"
@@ -610,11 +610,11 @@ export function AppPage() {
           >
             <h2 id="reset-dialog-title">Reset the complete trip?</h2>
             <p id="reset-dialog-description">This deletes all stops, people, distances, assignments, and fuel settings from this device.</p>
-            <div className={classes('dialog-actions')}>
-              <button ref={cancelResetRef} className={classes('dialog-cancel')} type="button" onClick={closeResetDialog}>
+            <div className={layout('dialog-actions')}>
+              <button ref={cancelResetRef} className={layout('dialog-cancel')} type="button" onClick={closeResetDialog}>
                 Cancel
               </button>
-              <button className={classes('dialog-confirm')} type="button" onClick={resetTrip}>
+              <button className={layout('dialog-confirm')} type="button" onClick={resetTrip}>
                 Reset trip
               </button>
             </div>
@@ -622,9 +622,9 @@ export function AppPage() {
         </div>
       )}
       {tripDialog && (
-        <div ref={tripDialogRef as React.RefObject<HTMLDivElement>} className={classes('dialog-backdrop')}>
+        <div ref={tripDialogRef as React.RefObject<HTMLDivElement>} className={layout('dialog-backdrop')}>
           <div
-            className={classes('reset-dialog')}
+            className={layout('reset-dialog')}
             role="dialog"
             aria-modal="true"
             aria-labelledby="trip-dialog-title"
@@ -636,7 +636,7 @@ export function AppPage() {
             {tripDialog.action === 'delete' ? (
               <p>The trip will move to Recently deleted, where you can restore it later.</p>
             ) : (
-              <div className={classes('dialog-input')}>
+              <div className={layout('dialog-input')}>
                 <label htmlFor="trip-name">Trip name</label>
                 <input
                   id="trip-name"
@@ -665,11 +665,11 @@ export function AppPage() {
                 )}
               </div>
             )}
-            <div className={classes('dialog-actions')}>
-              <button className={classes('dialog-cancel')} type="button" onClick={() => setTripDialog(null)}>
+            <div className={layout('dialog-actions')}>
+              <button className={layout('dialog-cancel')} type="button" onClick={() => setTripDialog(null)}>
                 Cancel
               </button>
-              <button className={classes(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>
+              <button className={layout(tripDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={() => void submitTripDialog()}>
                 {tripDialog.action === 'create' ? 'Create trip' : tripDialog.action === 'rename' ? 'Save name' : 'Move to Recently deleted'}
               </button>
             </div>
@@ -677,13 +677,13 @@ export function AppPage() {
         </div>
       )}
       {vehicleDialog && (
-        <div ref={vehicleDialogRef as React.RefObject<HTMLDivElement>} className={classes('dialog-backdrop')}>
-          <div className={classes('reset-dialog')} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title">
+        <div ref={vehicleDialogRef as React.RefObject<HTMLDivElement>} className={layout('dialog-backdrop')}>
+          <div className={layout('reset-dialog')} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title">
             <h2 id="vehicle-dialog-title">{vehicleDialog.action === 'create' ? 'Save vehicle preset' : vehicleDialog.action === 'edit' ? `Edit ${vehicleDialog.preset?.name}` : `Delete ${vehicleDialog.preset?.name}?`}</h2>
             {vehicleDialog.action === 'delete' ? (
               <p>This removes the local preset. Existing trips are not changed.</p>
             ) : (
-              <div className={classes('dialog-input')}>
+              <div className={layout('dialog-input')}>
                 <label htmlFor="vehicle-name">Preset name</label>
                 <input id="vehicle-name" autoFocus value={vehicleName} onChange={(event) => setVehicleName(event.target.value)} />
                 <label htmlFor="vehicle-units">Preferred units</label>
@@ -707,11 +707,11 @@ export function AppPage() {
                 <input id="vehicle-fuel-type" value={vehicleFuelType} placeholder="e.g. Petrol" onChange={(event) => setVehicleFuelType(event.target.value)} />
               </div>
             )}
-            <div className={classes('dialog-actions')}>
-              <button className={classes('dialog-cancel')} type="button" onClick={() => setVehicleDialog(null)}>
+            <div className={layout('dialog-actions')}>
+              <button className={layout('dialog-cancel')} type="button" onClick={() => setVehicleDialog(null)}>
                 Cancel
               </button>
-              <button className={classes(vehicleDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={submitVehicleDialog}>
+              <button className={layout(vehicleDialog.action === 'delete' ? 'dialog-confirm' : 'done-button')} type="button" onClick={submitVehicleDialog}>
                 {vehicleDialog.action === 'delete' ? 'Delete preset' : 'Save preset'}
               </button>
             </div>
@@ -719,9 +719,9 @@ export function AppPage() {
         </div>
       )}
       {mapDialog && (
-        <div ref={mapDialogRef as React.RefObject<HTMLDivElement>} className={classes('dialog-backdrop')}>
+        <div ref={mapDialogRef as React.RefObject<HTMLDivElement>} className={layout('dialog-backdrop')}>
           <div
-            className={classes('map-dialog')}
+            className={layout('map-dialog')}
             role="dialog"
             aria-modal="true"
             aria-labelledby="map-dialog-title"
@@ -729,12 +729,12 @@ export function AppPage() {
               if (event.key === 'Escape' && mapStatus === 'idle') setMapDialog(null)
             }}
           >
-            <button className={classes('dialog-close')} type="button" aria-label="Close road distance dialog" disabled={mapStatus !== 'idle'} onClick={() => setMapDialog(null)}>
+            <button className={layout('dialog-close')} type="button" aria-label="Close road distance dialog" disabled={mapStatus !== 'idle'} onClick={() => setMapDialog(null)}>
               <X />
             </button>
             <h2 id="map-dialog-title">Look up road distance</h2>
             <p>No request is made until you select an action below. Manual distance entry and your saved trip continue to work offline.</p>
-            <div className={classes('map-search-grid')}>
+            <div className={layout('map-search-grid')}>
               <div>
                 <label htmlFor="from-place">Origin</label>
                 <input
@@ -748,7 +748,7 @@ export function AppPage() {
                   }
                 />
                 {fromSuggestions.length > 0 && (
-                  <div className={classes('suggestion-list')} role="radiogroup" aria-label="Origin suggestions">
+                  <div className={layout('suggestion-list')} role="radiogroup" aria-label="Origin suggestions">
                     {fromSuggestions.map((place) => (
                       <label key={place.id}>
                         <input type="radio" name="from-place" checked={selectedFrom === place.id} onChange={() => setSelectedFrom(place.id)} />
@@ -762,7 +762,7 @@ export function AppPage() {
                 <label htmlFor="to-place">Destination</label>
                 <input id="to-place" value={mapDialog.toQuery} onChange={(event) => setMapDialog({ ...mapDialog, toQuery: event.target.value })} />
                 {toSuggestions.length > 0 && (
-                  <div className={classes('suggestion-list')} role="radiogroup" aria-label="Destination suggestions">
+                  <div className={layout('suggestion-list')} role="radiogroup" aria-label="Destination suggestions">
                     {toSuggestions.map((place) => (
                       <label key={place.id}>
                         <input type="radio" name="to-place" checked={selectedTo === place.id} onChange={() => setSelectedTo(place.id)} />
@@ -774,11 +774,11 @@ export function AppPage() {
               </div>
             </div>
             {mapError && (
-              <p className={classes('error-notice notice')} role="alert">
+              <p className={layout('error-notice notice')} role="alert">
                 {mapError}
               </p>
             )}
-            <div className={classes('map-attribution')}>
+            <div className={layout('map-attribution')}>
               Place searches are sent to{' '}
               <a href="https://nominatim.openstreetmap.org/" target="_blank" rel="noreferrer">
                 Nominatim
@@ -793,14 +793,14 @@ export function AppPage() {
               </a>
               . Provider services may receive your IP address and search text. Do not enter private addresses unless you accept this.
             </div>
-            <div className={classes('dialog-actions')}>
-              <button className={classes('dialog-cancel')} type="button" disabled={mapStatus !== 'idle'} onClick={() => setMapDialog(null)}>
+            <div className={layout('dialog-actions')}>
+              <button className={layout('dialog-cancel')} type="button" disabled={mapStatus !== 'idle'} onClick={() => setMapDialog(null)}>
                 Cancel
               </button>
-              <button className={classes('dialog-cancel')} type="button" disabled={mapStatus !== 'idle'} onClick={() => void findPlaces()}>
+              <button className={layout('dialog-cancel')} type="button" disabled={mapStatus !== 'idle'} onClick={() => void findPlaces()}>
                 {mapStatus === 'searching' ? 'Searching…' : 'Find places'}
               </button>
-              <button className={classes('done-button')} type="button" disabled={!selectedFrom || !selectedTo || mapStatus !== 'idle'} onClick={() => void applyRoadDistance()}>
+              <button className={layout('done-button')} type="button" disabled={!selectedFrom || !selectedTo || mapStatus !== 'idle'} onClick={() => void applyRoadDistance()}>
                 {mapStatus === 'routing' ? 'Finding route…' : 'Use road distance'}
               </button>
             </div>
@@ -808,11 +808,11 @@ export function AppPage() {
         </div>
       )}
       {importPreview && (
-        <div ref={importDialogRef as React.RefObject<HTMLDivElement>} className={classes('dialog-backdrop')}>
-          <div className={classes('reset-dialog')} role="dialog" aria-modal="true" aria-labelledby="import-dialog-title">
+        <div ref={importDialogRef as React.RefObject<HTMLDivElement>} className={layout('dialog-backdrop')}>
+          <div className={layout('reset-dialog')} role="dialog" aria-modal="true" aria-labelledby="import-dialog-title">
             <h2 id="import-dialog-title">Preview imported trip</h2>
             <p>Review this trip before saving it on this device. Nothing local has changed yet.</p>
-            <div className={classes('import-preview')}>
+            <div className={layout('import-preview')}>
               <dl>
                 <dt>Name</dt>
                 <dd>{importPreview.name}</dd>
@@ -826,14 +826,14 @@ export function AppPage() {
                 <dd>{importPreview.unitSystem === 'metric' ? 'Metric' : importPreview.unitSystem === 'us' ? 'US customary' : 'UK imperial'}</dd>
               </dl>
             </div>
-            <div className={classes('dialog-actions')}>
-              <button className={classes('dialog-cancel')} type="button" onClick={() => setImportPreview(null)}>
+            <div className={layout('dialog-actions')}>
+              <button className={layout('dialog-cancel')} type="button" onClick={() => setImportPreview(null)}>
                 Cancel
               </button>
-              <button className={classes('dialog-cancel')} type="button" onClick={() => void confirmImport('add')}>
+              <button className={layout('dialog-cancel')} type="button" onClick={() => void confirmImport('add')}>
                 Add as new trip
               </button>
-              <button className={classes('dialog-confirm')} type="button" onClick={() => void confirmImport('replace')}>
+              <button className={layout('dialog-confirm')} type="button" onClick={() => void confirmImport('replace')}>
                 Replace current trip
               </button>
             </div>

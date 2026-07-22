@@ -1,7 +1,8 @@
 import { type RefObject } from 'react'
 import { FolderOpen, Fuel, Monitor, Moon, RotateCcw, Sun } from 'lucide-react'
 import type { ThemePreference } from '../../hooks/useThemePreference'
-import { classes } from '../../styles'
+import { layout } from '../../designSystem'
+import { Button, IconButton } from '../ui/AppControls'
 
 type AppHeaderProps = {
   libraryOpen: boolean
@@ -15,15 +16,15 @@ type AppHeaderProps = {
 
 export function AppHeader({ libraryOpen, onToggleLibrary, onReset, persistenceStatus, resetButtonRef, themePreference, onCycleTheme }: AppHeaderProps) {
   const saveStatus = persistenceStatus === 'saving' ? 'Saving…' : persistenceStatus === 'error' ? 'Not saved' : persistenceStatus === 'saved' ? 'Saved' : 'Autosave'
-  return <header className={classes('site-header')}>
-    <a className={classes('brand')} href="#top" aria-label="Petrol Share home"><span className={classes('brand-mark')}><Fuel /></span><span>Petrol <strong>Share</strong></span></a>
-    <div className={classes('header-actions')}>
-      <button className={classes('trips-button')} type="button" aria-expanded={libraryOpen} onClick={onToggleLibrary}><FolderOpen /> Trips</button>
-      <span className={classes('header-save-status')} role="status" aria-live="polite">{saveStatus}</span>
-      <button className={classes('theme-button')} type="button" onClick={onCycleTheme} aria-label={`Theme: ${themePreference}. Switch theme`} title={`Theme: ${themePreference}`}>
+  return <header className={layout('site-header')}>
+    <a className={layout('brand')} href="#top" aria-label="Petrol Share home"><span className={layout('brand-mark')}><Fuel /></span><span>Petrol <strong>Share</strong></span></a>
+    <div className={layout('header-actions')}>
+      <Button variant="quiet" aria-expanded={libraryOpen} onClick={onToggleLibrary}><FolderOpen /> Trips</Button>
+      <span className={layout('header-save-status')} role="status" aria-live="polite">{saveStatus}</span>
+      <IconButton label={`Theme: ${themePreference}. Switch theme`} onClick={onCycleTheme}>
         {themePreference === 'system' ? <Monitor /> : themePreference === 'light' ? <Sun /> : <Moon />}
-      </button>
-      <button ref={resetButtonRef} className={classes('reset-button')} type="button" aria-label="Reset trip" onClick={onReset}><RotateCcw size={17} /> <span>Reset trip</span></button>
+      </IconButton>
+      <Button ref={resetButtonRef} variant="danger" className="border-transparent max-[359px]:size-11 max-[359px]:gap-0 max-[359px]:p-0 max-[359px]:[&_span]:hidden" aria-label="Reset trip" onClick={onReset}><RotateCcw /> <span>Reset trip</span></Button>
     </div>
   </header>
 }
