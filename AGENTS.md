@@ -12,7 +12,6 @@
 - Create a relevant branch for the issue.
 - Implement the issue following [Guidelines](#guidelines)
 - Run the complete end-to-end suite locally with `pnpm test:e2e` and ensure it passes before raising a PR.
-- Run playwright tests at mobile and desktop layout to find overflowing buttons, layouts, layouts that only overflow when some buttons are pressed and fix it.
 - Commit and raise a pr against the issue.
 
 ## Guidelines
@@ -21,3 +20,5 @@
 - Tailwind for styling, no duplicated code.
 - DRY and SOLID principles.
 - Best practices for react state management and performance must be followed.
+- Styling should be verified in both dark and light modes with playwright.
+- Styling should be verified in both desktop and mobile layouts with playwright.

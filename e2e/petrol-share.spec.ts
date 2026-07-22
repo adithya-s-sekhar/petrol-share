@@ -47,7 +47,9 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
     expect(box?.width).toBe(21)
     expect(box?.height).toBe(21)
   }
-  const riderChoice = page.locator('label').filter({ has: page.getByLabel('Asha shares Parking at the railway station') })
+  const riderChoice = page.locator('label').filter({
+    has: page.getByLabel('Asha shares Parking at the railway station'),
+  })
   await expect(riderChoice).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
@@ -55,14 +57,15 @@ test('keeps additional-expense controls within a mobile viewport after scope cha
 test('uses semantic surfaces for expanded expenses and dialogs in both themes and layouts', async ({ page }) => {
   test.setTimeout(90_000)
 
-  const semanticColor = async (token: string) => page.evaluate((name) => {
-    const probe = document.createElement('span')
-    probe.style.color = `var(${name})`
-    document.body.append(probe)
-    const color = getComputedStyle(probe).color
-    probe.remove()
-    return color
-  }, token)
+  const semanticColor = async (token: string) =>
+    page.evaluate((name) => {
+      const probe = document.createElement('span')
+      probe.style.color = `var(${name})`
+      document.body.append(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      return color
+    }, token)
 
   for (const theme of ['light', 'dark'] as const) {
     await page.evaluate((value) => localStorage.setItem('petrol-share-theme', value), theme)
@@ -86,7 +89,9 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     }
 
     await page.getByRole('button', { name: 'Reset trip' }).click()
-    const resetDialog = page.getByRole('alertdialog', { name: 'Reset the complete trip?' })
+    const resetDialog = page.getByRole('alertdialog', {
+      name: 'Reset the complete trip?',
+    })
     await expect(resetDialog).toHaveCSS('background-color', await semanticColor('--color-panel'))
     await expect(resetDialog.getByRole('button', { name: 'Cancel' })).toHaveCSS('background-color', await semanticColor('--color-panel'))
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -102,7 +107,9 @@ test('uses semantic surfaces for expanded expenses and dialogs in both themes an
     await page.getByRole('button', { name: 'Close' }).click()
 
     await page.getByRole('button', { name: 'Look up road distance' }).first().click()
-    const roadDialog = page.getByRole('dialog', { name: 'Look up road distance' })
+    const roadDialog = page.getByRole('dialog', {
+      name: 'Look up road distance',
+    })
     await expect(roadDialog).toHaveCSS('background-color', await semanticColor('--color-panel'))
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await roadDialog.getByRole('button', { name: 'Cancel' }).click()
@@ -130,7 +137,17 @@ test('keeps header actions separate at the narrowest supported viewport', { tag:
 test('looks up an optional road distance and keeps it editable', { tag: '@cross-browser' }, async ({ page }) => {
   await page.route('https://nominatim.openstreetmap.org/search**', async (route) => {
     const query = new URL(route.request().url()).searchParams.get('q')
-    await route.fulfill({ json: [{ place_id: query === 'Home' ? 1 : 2, display_name: `${query}, Kerala`, lat: query === 'Home' ? '10' : '11', lon: query === 'Home' ? '76' : '77' }] })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    await route.fulfill({
+      json: [
+        {
+          place_id: query === 'Home' ? 1 : 2,
+          display_name: `${query}, Kerala`,
+          lat: query === 'Home' ? '10' : '11',
+          lon: query === 'Home' ? '76' : '77',
+        },
+      ],
+    })
   })
   await page.route('https://router.project-osrm.org/route/v1/driving/**', (route) => route.fulfill({ json: { code: 'Ok', routes: [{ distance: 42500 }] } }))
 
@@ -141,6 +158,10 @@ test('looks up an optional road distance and keeps it editable', { tag: '@cross-
   const dialog = page.getByRole('dialog', { name: 'Look up road distance' })
   await expect(dialog).toContainText('No request is made until you select an action')
   await dialog.getByRole('button', { name: 'Find places' }).click()
+  await expect(dialog.getByRole('button', { name: 'Searching…' })).toBeDisabled()
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('radiogroup', { name: 'Origin suggestions' })).toContainText('Home, Kerala')
   await dialog.getByRole('button', { name: 'Use road distance' }).click()
   await expect(page.getByLabel('Distance from Home, Kerala to Office, Kerala in kilometres')).toHaveValue('42.5')
@@ -151,9 +172,11 @@ test('looks up an optional road distance and keeps it editable', { tag: '@cross-
 
 test('contains long road-distance suggestions on desktop and mobile', { tag: '@cross-browser' }, async ({ page }) => {
   const longPlace = 'Central railway station entrance beside the international convention centre, Thiruvananthapuram, Kerala, India'
-  await page.route('https://nominatim.openstreetmap.org/search**', (route) => route.fulfill({
-    json: [{ place_id: 1, display_name: longPlace, lat: '10', lon: '76' }],
-  }))
+  await page.route('https://nominatim.openstreetmap.org/search**', (route) =>
+    route.fulfill({
+      json: [{ place_id: 1, display_name: longPlace, lat: '10', lon: '76' }],
+    }),
+  )
   await page.getByLabel('Stop 1 name').fill('Home')
   await page.getByLabel('Stop 2 name').fill('Office')
   await page.getByRole('button', { name: 'Look up road distance' }).click()
@@ -172,12 +195,7 @@ test('contains long road-distance suggestions on desktop and mobile', { tag: '@c
         const text = option.querySelector('span')!
         const optionRect = option.getBoundingClientRect()
         const textRect = text.getBoundingClientRect()
-        return getComputedStyle(option).display === 'flex'
-          && option.scrollWidth <= option.clientWidth
-          && optionRect.left >= 0
-          && optionRect.right <= window.innerWidth
-          && textRect.left >= optionRect.left
-          && textRect.right <= optionRect.right
+        return getComputedStyle(option).display === 'flex' && option.scrollWidth <= option.clientWidth && optionRect.left >= 0 && optionRect.right <= window.innerWidth && textRect.left >= optionRect.left && textRect.right <= optionRect.right
       })
       expect(contained).toBe(true)
     }
@@ -204,7 +222,9 @@ test('uses vehicle and route presets and makes a safe editable round trip', asyn
 
   await page.getByRole('button', { name: 'Trips' }).click()
   await page.getByRole('button', { name: 'Save vehicle preset' }).click()
-  const vehicleDialog = page.getByRole('dialog', { name: 'Save vehicle preset' })
+  const vehicleDialog = page.getByRole('dialog', {
+    name: 'Save vehicle preset',
+  })
   await vehicleDialog.getByLabel('Preset name').fill('Family car')
   await vehicleDialog.getByLabel('Fuel economy (km/L)').fill('18')
   await vehicleDialog.getByLabel('Fuel type (optional)').fill('Petrol')
@@ -245,7 +265,10 @@ test('exports an editable link and previews it before adding it on another devic
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
-        writeText: (value: string) => { (window as Window & { copiedEditableTrip?: string }).copiedEditableTrip = value; return Promise.resolve() },
+        writeText: (value: string) => {
+          ;(window as Window & { copiedEditableTrip?: string }).copiedEditableTrip = value
+          return Promise.resolve()
+        },
       },
     })
   })
@@ -275,7 +298,9 @@ test('exports an editable link and previews it before adding it on another devic
   const recipientContext = await browser.newContext()
   const recipient = await recipientContext.newPage()
   await recipient.goto(editableLink)
-  const preview = recipient.getByRole('dialog', { name: 'Preview imported trip' })
+  const preview = recipient.getByRole('dialog', {
+    name: 'Preview imported trip',
+  })
   await expect(preview).toContainText('Shared commute')
   await expect(preview).toContainText('Home → Cafe → Office')
   await expect(preview).toContainText('US customary')
@@ -291,7 +316,11 @@ test('exports an editable link and previews it before adding it on another devic
   await expect(recipient.getByRole('article', { name: 'Untitled trip' })).toBeVisible()
 
   const fileInput = recipient.locator('input[type=file]')
-  await fileInput.setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{broken') })
+  await fileInput.setInputFiles({
+    name: 'broken.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{broken'),
+  })
   await expect(recipient.getByRole('alert')).toContainText('not a valid Petrol Share trip')
   await recipientContext.close()
 })
@@ -399,7 +428,9 @@ test('checks incomplete details, focuses validation, and only resets after in-ap
 
   await page.getByLabel('Stop 1 name').fill('Keep me')
   await page.getByRole('button', { name: 'Reset trip' }).click()
-  const dialog = page.getByRole('alertdialog', { name: 'Reset the complete trip?' })
+  const dialog = page.getByRole('alertdialog', {
+    name: 'Reset the complete trip?',
+  })
   await expect(dialog).toContainText('distances, assignments, and fuel settings')
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
   await page.keyboard.press('Escape')
@@ -478,13 +509,7 @@ test('provides mobile assignment cards without horizontal overflow', { tag: '@cr
     await page.getByLabel(`Person ${index + 1} name`).fill(`Rider ${index + 1}`)
   }
 
-  const touchTargets = [
-    page.getByRole('button', { name: 'Theme: system. Switch theme' }),
-    page.getByRole('button', { name: 'Reset trip' }),
-    page.getByRole('button', { name: 'Move stop 2 up' }),
-    page.getByRole('button', { name: 'Remove stop 2' }),
-    page.getByRole('button', { name: 'Remove Rider 1' }),
-  ]
+  const touchTargets = [page.getByRole('button', { name: 'Theme: system. Switch theme' }), page.getByRole('button', { name: 'Reset trip' }), page.getByRole('button', { name: 'Move stop 2 up' }), page.getByRole('button', { name: 'Remove stop 2' }), page.getByRole('button', { name: 'Remove Rider 1' })]
 
   for (const target of touchTargets) {
     const box = await target.boundingBox()
@@ -493,7 +518,9 @@ test('provides mobile assignment cards without horizontal overflow', { tag: '@cr
   }
 
   await expect(page.getByRole('table')).toBeHidden()
-  const firstLeg = page.getByRole('region', { name: `Riders from ${stops[0]} to ${stops[1]}` })
+  const firstLeg = page.getByRole('region', {
+    name: `Riders from ${stops[0]} to ${stops[1]}`,
+  })
   await expect(firstLeg).toContainText(stops[0])
   await expect(firstLeg).toContainText(stops[1])
   await firstLeg.getByRole('button', { name: 'Select all' }).click()
@@ -549,7 +576,9 @@ test('keeps long route, expense, and rider content readable across responsive la
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 900 })
-    const route = page.getByRole('region', { name: `Riders from ${from} to ${to}` })
+    const route = page.getByRole('region', {
+      name: `Riders from ${from} to ${to}`,
+    })
     await expect(route).toContainText(from)
     await expect(route).toContainText(to)
     await expect(route).toContainText(rider)
@@ -570,7 +599,9 @@ test('collapses completed sections into editable summaries and manages focus', a
   await page.getByLabel('Distance from Home to Office in kilometres').fill('48')
 
   await page.getByRole('button', { name: 'Done with route' }).click()
-  const routeSummary = page.getByRole('button', { name: /Build your route.*2 stops · 48 km/ })
+  const routeSummary = page.getByRole('button', {
+    name: /Build your route.*2 stops · 48 km/,
+  })
   await expect(routeSummary).toBeVisible()
   await expect(page.getByLabel('Fuel economy')).toBeFocused()
 
@@ -596,4 +627,44 @@ test('keeps a mobile result shortcut visible without obscuring the result', { ta
   await expect(page).toHaveURL(/#results$/)
   await expect(page.getByRole('heading', { name: 'Journey summary' })).toBeInViewport()
   await expect(shortcut).toBeHidden()
+})
+
+test('navigates completed sections without replaying the full mobile form', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const navigator = page.getByRole('navigation', { name: 'Trip sections' })
+  await expect(navigator.getByRole('button', { name: 'Route, incomplete' })).toBeVisible()
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('20')
+  await navigator.getByRole('button', { name: 'Fuel, incomplete' }).click()
+  await expect(page.getByRole('button', { name: /Build your route.*2 stops/ })).toBeVisible()
+  await page.getByLabel('Fuel economy').fill('10')
+  await navigator.getByRole('button', { name: 'Route, complete' }).click()
+  await expect(page.getByLabel('Stop 1 name')).toBeFocused()
+  await navigator.getByRole('link', { name: 'Assign' }).click()
+  await expect(page.getByRole('heading', { name: 'Assign each leg' })).toBeInViewport()
+})
+
+test('contains and restores focus for the mobile trips drawer and road dialog', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  const tripsButton = page.getByRole('button', { name: 'Trips' })
+  await tripsButton.click()
+  const drawer = page.getByRole('dialog', { name: 'Saved trips' })
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByRole('heading', { name: 'Trips', exact: true })).toBeVisible()
+  await expect(drawer.getByRole('heading', { name: 'Templates' })).toBeVisible()
+  await expect(drawer.getByRole('heading', { name: 'Vehicle presets' })).toBeVisible()
+  await expect(drawer.getByRole('button', { name: 'Close saved trips' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toBeHidden()
+  await expect(tripsButton).toBeFocused()
+
+  const lookup = page.getByRole('button', { name: 'Look up road distance' })
+  await lookup.click()
+  const dialog = page.getByRole('dialog', { name: 'Look up road distance' })
+  await expect(dialog.getByRole('button', { name: 'Close road distance dialog' })).toBeFocused()
+  expect(await dialog.evaluate((element) => element.scrollHeight <= element.clientHeight || getComputedStyle(element).overflowY === 'auto')).toBe(true)
+  await dialog.getByRole('button', { name: 'Close road distance dialog' }).click()
+  await expect(lookup).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
