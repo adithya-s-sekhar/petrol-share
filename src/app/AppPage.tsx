@@ -71,7 +71,7 @@ export function AppPage() {
   const currencies = useMemo(() => currencyOptions(), [])
   const hasResult = result !== null
   const resultsVisible = useElementVisibility(resultsRef, hasResult)
-  const { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments } = useTripEditor(draft, setDraft)
+  const { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments, copyPreviousLegDistance, copyPreviousLegAssignments } = useTripEditor(draft, setDraft)
   const { mapDialog, setMapDialog, fromSuggestions, toSuggestions, selectedFrom, setSelectedFrom, selectedTo, setSelectedTo, mapStatus, mapError, showMapDialog, findPlaces, applyRoadDistance } = useRouteLookup(draft, update, stopsById)
   const overlayOpen = resetDialogOpen || Boolean(tripDialog || vehicleDialog || mapDialog || importPreview)
   const libraryRef = useModalFocus(libraryOpen && mobileAssignments && !overlayOpen, () => setLibraryOpen(false))
@@ -345,6 +345,16 @@ export function AppPage() {
     })
   }
 
+  function copyLegDistance(legId: string) {
+    rememberRemoval(draft, 'Previous leg distance copied. You can edit the copy independently.')
+    copyPreviousLegDistance(legId)
+  }
+
+  function copyLegAssignments(legId: string) {
+    rememberRemoval(draft, 'Previous leg rider assignments copied. You can edit the copy independently.')
+    copyPreviousLegAssignments(legId)
+  }
+
   function addExpense() {
     update({
       ...draft,
@@ -519,6 +529,7 @@ export function AppPage() {
               onUnitSystemChange={setUnitSystem}
               onUpdate={update}
               onReuseReverseDistance={reuseLegDistanceForBlankReverse}
+              onCopyPreviousLeg={copyLegDistance}
             />
             <FuelPanel
               currencies={currencies}
@@ -554,7 +565,7 @@ export function AppPage() {
           </div>
 
           <aside className={classes('results-column')}>
-            <AssignmentPanel draft={draft} mobile={mobileAssignments} stopsById={stopsById} onSetAssignment={setLegAssignment} onSetAllAssignments={setAllLegAssignments} />
+            <AssignmentPanel draft={draft} mobile={mobileAssignments} stopsById={stopsById} onSetAssignment={setLegAssignment} onSetAllAssignments={setAllLegAssignments} onCopyPreviousAssignments={copyLegAssignments} />
 
             <ResultsPanel draft={draft} result={result} unitSystem={unitSystem} stopsById={stopsById} panelRef={resultsRef} shareStatus={shareStatus} shareError={shareError} shareMessageCopied={shareMessageCopied} onReveal={revealResults} onShare={() => void shareResult()} />
           </aside>

@@ -1,10 +1,11 @@
-import { ArrowDown, ArrowRight, ArrowUp, MapPin, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, Copy, MapPin, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { distanceFromKm, distanceToKm, type Stop, type TripDraft, type UnitSystem } from '../../../domain'
 import { FieldError, IconButton } from '../ui/AppControls'
 import { UNIT_SYSTEM_OPTIONS } from '../../constants'
 import { displayNumber, numberFromInput, type ErrorMap } from '../../utils/tripDraftUtils'
 import { classes } from '../../styles'
 import { CollapsibleSection, SectionHeading } from './CollapsibleSection'
+import { RouteOverview } from './RouteOverview'
 
 interface RoutePanelProps {
   draft: TripDraft
@@ -28,6 +29,7 @@ interface RoutePanelProps {
   onUnitSystemChange: (unitSystem: UnitSystem) => void
   onUpdate: (draft: TripDraft) => void
   onReuseReverseDistance: (legId: string) => void
+  onCopyPreviousLeg: (legId: string) => void
 }
 
 export function RoutePanel(props: RoutePanelProps) {
@@ -52,6 +54,7 @@ export function RoutePanel(props: RoutePanelProps) {
         <button className={classes('secondary-button full-button')} type="button" onClick={props.onAddStop}><Plus size={18} /> Add another stop</button>
         {draft.stops.length > 1 && draft.stops.every(({ name }) => name.trim()) && draft.stops[0].name.trim().toLocaleLowerCase() !== draft.stops.at(-1)?.name.trim().toLocaleLowerCase() && <button className={classes('secondary-button full-button')} type="button" onClick={props.onMakeRoundTrip}><RotateCcw size={18} /> Make round trip</button>}
         {returnStops.length > 0 && <div className={classes('return-stops')} aria-label="Return to an earlier stop"><span>Going back?</span><div>{returnStops.map((stop) => <button key={stop.id} className={classes('return-stop-button')} type="button" onClick={() => props.onReturnToStop(stop)}><RotateCcw size={15} /> Return to {stop.name.trim()}</button>)}</div><p>The known distance is reused when available, and can still be changed.</p></div>}
+        <RouteOverview draft={draft} unitSystem={unitSystem} distanceUnit={units.distance} />
         <div className={classes('subsection')}>
           <h3>Leg distances</h3>
           <div className={classes('unit-picker')} aria-label="Display units">{UNIT_SYSTEM_OPTIONS.map(([value, label]) => <button key={value} type="button" aria-pressed={unitSystem === value} onClick={() => props.onUnitSystemChange(value)}>{label}</button>)}</div>
@@ -61,7 +64,7 @@ export function RoutePanel(props: RoutePanelProps) {
               const errorId = `leg-${leg.id}-error`
               return <div className={classes('leg-row')} key={leg.id}>
                 <div className={classes('leg-name')}><span title={stopsById.get(leg.fromStopId)}>{stopsById.get(leg.fromStopId)}</span><ArrowRight size={16} /><span title={stopsById.get(leg.toStopId)}>{stopsById.get(leg.toStopId)}</span></div>
-                <div><label className={classes('row-label')} htmlFor={`leg-${leg.id}`}>Distance ({units.distance})</label><div className={classes('unit-input')}><input id={`leg-${leg.id}`} aria-label={`Distance from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)} in ${units.distanceLong}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={displayNumber(leg.distanceKm, (value) => distanceFromKm(value, unitSystem))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => props.onReuseReverseDistance(leg.id)} onChange={(event) => { const value = numberFromInput(event.target.value); props.onUpdate({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: value === null ? null : distanceToKm(value, unitSystem), distanceSource: 'manual' } : item) }) }} /><span>{units.distance}</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource ?? 'manual'}`)} title={leg.distanceSource === 'reused' ? 'Reused from the reverse leg' : undefined}>{leg.distanceSource === 'reused' ? 'Auto-filled' : leg.distanceSource === 'lookup' ? 'Looked up' : 'Manual'}</span>}<button className={classes('lookup-button')} type="button" onClick={() => props.onShowMapDialog(leg.id)}><Search /> Look up road distance</button><FieldError id={errorId} message={error} /></div>
+                <div><label className={classes('row-label')} htmlFor={`leg-${leg.id}`}>Distance ({units.distance})</label><div className={classes('unit-input')}><input id={`leg-${leg.id}`} aria-label={`Distance from ${stopsById.get(leg.fromStopId)} to ${stopsById.get(leg.toStopId)} in ${units.distanceLong}`} type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={displayNumber(leg.distanceKm, (value) => distanceFromKm(value, unitSystem))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onBlur={() => props.onReuseReverseDistance(leg.id)} onChange={(event) => { const value = numberFromInput(event.target.value); props.onUpdate({ ...draft, legs: draft.legs.map((item) => item.id === leg.id ? { ...item, distanceKm: value === null ? null : distanceToKm(value, unitSystem), distanceSource: 'manual' } : item) }) }} /><span>{units.distance}</span></div>{leg.distanceKm !== null && <span className={classes(`distance-source distance-source-${leg.distanceSource ?? 'manual'}`)} title={leg.distanceSource === 'reused' ? 'Reused from the reverse leg' : undefined}>{leg.distanceSource === 'reused' ? 'Auto-filled' : leg.distanceSource === 'lookup' ? 'Looked up' : leg.distanceSource === 'copied' ? 'Copied' : 'Manual'}</span>}{index > 0 && <button className={classes('copy-button')} type="button" onClick={() => props.onCopyPreviousLeg(leg.id)}><Copy /> Copy previous distance</button>}<button className={classes('lookup-button')} type="button" onClick={() => props.onShowMapDialog(leg.id)}><Search /> Look up road distance</button><FieldError id={errorId} message={error} /></div>
               </div>
             })}
           </div>

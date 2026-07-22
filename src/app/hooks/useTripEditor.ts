@@ -84,5 +84,27 @@ export function useTripEditor(draft: TripDraft, setDraft: React.Dispatch<React.S
     })
   }
 
-  return { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments }
+  function copyPreviousLegDistance(legId: string) {
+    const index = draft.legs.findIndex((leg) => leg.id === legId)
+    if (index < 1) return
+    const previous = draft.legs[index - 1]
+    update({ ...draft, legs: draft.legs.map((leg) => leg.id === legId ? { ...leg, distanceKm: previous.distanceKm, distanceSource: 'copied' } : leg) })
+  }
+
+  function copyPreviousLegAssignments(legId: string) {
+    const index = draft.legs.findIndex((leg) => leg.id === legId)
+    if (index < 1) return
+    const previousLegId = draft.legs[index - 1].id
+    update({
+      ...draft,
+      people: draft.people.map((person) => ({
+        ...person,
+        assignedLegIds: person.assignedLegIds.includes(previousLegId)
+          ? [...new Set([...person.assignedLegIds, legId])]
+          : person.assignedLegIds.filter((id) => id !== legId),
+      })),
+    })
+  }
+
+  return { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments, copyPreviousLegDistance, copyPreviousLegAssignments }
 }
