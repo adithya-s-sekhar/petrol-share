@@ -59,6 +59,63 @@ test('uses theme-aware workflow and route timeline surfaces', async ({ page }) =
   }
 })
 
+test('keeps every workflow destination visible and reachable on narrow screens', async ({ page }) => {
+  test.setTimeout(90_000)
+
+  const workflow = page.getByRole('navigation', { name: 'Trip sections' })
+  const destinations = ['Route, incomplete', 'Fuel, incomplete', 'Riders, incomplete', 'Assign', 'Split']
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => localStorage.setItem('petrol-share-theme', value), theme)
+    await page.reload()
+
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 900 })
+      const workflowBox = await workflow.boundingBox()
+      expect(workflowBox).not.toBeNull()
+
+      for (const name of destinations) {
+        const destination = workflow.getByRole(name.includes(',') ? 'button' : 'link', { name })
+        const box = await destination.boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.height).toBeGreaterThanOrEqual(44)
+        expect(box!.x).toBeGreaterThanOrEqual(workflowBox!.x)
+        expect(box!.x + box!.width).toBeLessThanOrEqual(workflowBox!.x + workflowBox!.width)
+      }
+
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  }
+
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('20')
+  await page.getByLabel('Fuel economy').fill('10')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Asha')
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 900 })
+      await expect(workflow).toHaveScreenshot(`workflow-completed-${theme}-${width}.png`)
+
+      const route = workflow.getByRole('button', { name: 'Route, complete' })
+      await route.focus()
+      await expect(route).toBeInViewport()
+      await expect(workflow).toHaveScreenshot(`workflow-section-navigation-${theme}-${width}.png`)
+
+      await workflow.getByRole('button', { name: 'Fuel, complete' }).click()
+      const fuelField = page.getByLabel('Fuel economy')
+      await expect(fuelField).toBeFocused()
+      const [navBox, fieldBox] = await Promise.all([workflow.boundingBox(), fuelField.boundingBox()])
+      expect(fieldBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+  }
+})
+
 test('shows an accessible route overview and copies repetitive leg details independently', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 })
   await page.getByLabel('Stop 1 name').fill('Home')
