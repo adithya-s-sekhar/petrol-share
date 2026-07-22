@@ -5,6 +5,60 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Plan the route. Split the ride.' })).toBeVisible()
 })
 
+test('uses theme-aware workflow and route timeline surfaces', async ({ page }) => {
+  test.setTimeout(90_000)
+
+  const semanticColor = async (token: string) =>
+    page.evaluate((name) => {
+      const probe = document.createElement('span')
+      probe.style.color = `var(${name})`
+      document.body.append(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      return color
+    }, token)
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => localStorage.setItem('petrol-share-theme', value), theme)
+    await page.reload()
+
+    if (await page.getByLabel('Stop 1 name').inputValue()) {
+      await page.getByRole('button', { name: 'Reset trip' }).click()
+      await page.getByRole('alertdialog', { name: 'Reset the complete trip?' }).getByRole('button', { name: 'Reset trip' }).click()
+    }
+
+    const workflow = page.getByRole('navigation', { name: 'Trip sections' })
+    const routeButton = workflow.getByRole('button', { name: 'Route, incomplete' })
+    await expect(workflow).toHaveCSS('border-color', await semanticColor('--color-border'))
+    await routeButton.focus()
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Shift+Tab')
+    await expect(routeButton).toBeFocused()
+    expect(await routeButton.evaluate((element) => getComputedStyle(element).outlineColor)).toBe(await semanticColor('--color-focus'))
+
+    for (const width of [320, 390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await expect(workflow).toHaveScreenshot(`workflow-fresh-${theme}-${width}.png`)
+    }
+
+    await page.getByLabel('Stop 1 name').fill('Home')
+    await page.getByLabel('Stop 2 name').fill('Office')
+    await page.getByLabel('Distance from Home to Office in kilometres').fill('12.5')
+    const overview = page.getByRole('region', { name: 'Route overview' })
+    const marker = overview.locator('.route-overview-list > div > div:first-child > span').first()
+    const connector = overview.locator('.route-overview-leg svg').first()
+    await expect(marker).toHaveCSS('background-color', await semanticColor('--color-selected'))
+    await expect(connector).toHaveCSS('background-color', await semanticColor('--color-elevated'))
+
+    for (const width of [320, 390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await expect(overview).toHaveScreenshot(`route-overview-populated-${theme}-${width}.png`)
+    }
+  }
+})
+
 test('shows an accessible route overview and copies repetitive leg details independently', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 })
   await page.getByLabel('Stop 1 name').fill('Home')

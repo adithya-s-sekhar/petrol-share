@@ -174,6 +174,14 @@ html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
 /* Semantic surfaces shared by editor cards, libraries, dialogs, and controls. */
 .expense-row, .assignment-card, .return-stops, .leg-row, .route-overview, .import-preview, .map-attribution { background: var(--color-elevated); }
 .expense-row, .assignment-card, .preset-row, .trip-card, .suggestion-list label { border-color: var(--color-border); }
+.workflow-nav { border-color: var(--color-border); background: color-mix(in srgb, var(--color-panel) 95%, transparent); }
+.workflow-nav button, .workflow-nav a { color: var(--color-accent); }
+.workflow-nav button:hover, .workflow-nav a:hover { background: var(--color-accent-hover); }
+.workflow-nav button:active, .workflow-nav a:active { background: var(--color-accent-active); }
+.workflow-nav button > span, .route-overview-list > div > div:first-child > span { background: var(--color-selected); color: var(--color-accent); }
+.route-overview { border-color: var(--color-border); }
+.route-overview-leg { border-color: var(--color-selected-border); color: var(--color-muted); }
+.route-overview-leg svg { background: var(--color-elevated); color: var(--color-selected-border); }
 .expense-scope label, .expense-people label, .assignment-chip, .select-all-button,
 .return-stop-button, .lookup-button, .copy-button, .copy-assignments-button, .dialog-cancel { background: var(--color-panel); border-color: var(--color-border); color: var(--color-text); }
 .expense-scope label:has(input:checked), .expense-people label:has(input:checked),
