@@ -115,6 +115,14 @@ export function calculateTrip(draft: TripDraft): TripResult {
   const totalFuelCost = totalLitres * fuelPricePerLitre
   const totalAdditionalCost = (draft.expenses ?? []).reduce((sum, expense) => sum + requirePositive(expense.amount, `Amount for expense ${expense.id}`), 0)
   const totalCost = totalFuelCost + totalAdditionalCost
+  const allocationRules = draft.legs.map((leg) => {
+    const riders = draft.people.filter((person) => person.assignedLegIds.includes(leg.id))
+    const rule = (draft.allocationRules ?? []).find((candidate) => candidate.legId === leg.id)
+    if (!rule || rule.mode === 'equal') return { legId: leg.id, description: 'Equal split' }
+    const entries = rule.shares.map((share) => `${draft.people.find(({ id }) => id === share.personId)?.name ?? 'Unknown'} ${share.value}${rule.mode === 'percentages' ? '%' : rule.mode === 'weights' ? '×' : ` ${draft.fuelSettings.currency}`}`)
+    const label = rule.mode === 'weights' ? 'Weighted' : rule.mode === 'percentages' ? 'Percentages' : 'Fixed contributions'
+    return { legId: leg.id, description: `${label}: ${entries.join(', ')}${rule.mode === 'fixed' && rule.shares.length < riders.length ? '; remainder split equally' : ''}` }
+  })
 
   const expenseShares = new Map<string, number>()
   const unassignedExpenseIds: string[] = []
@@ -130,14 +138,27 @@ export function calculateTrip(draft: TripDraft): TripResult {
   }
 
   if (unassignedLegIds.length > 0 || unassignedExpenseIds.length > 0) {
-    return { totalDistanceKm, totalLitres, totalCost, totalFuelCost, totalAdditionalCost, people: [], unassignedLegIds, unassignedExpenseIds }
+    return { totalDistanceKm, totalLitres, totalCost, totalFuelCost, totalAdditionalCost, people: [], unassignedLegIds, unassignedExpenseIds, allocationRules }
   }
 
   const rawPeople = draft.people.map((person, creationIndex): RawPersonResult => {
     const assigned = new Set(person.assignedLegIds)
     const assignedLegs = draft.legs.filter((leg) => assigned.has(leg.id))
-    const fuelCost = assignedLegs.reduce((sum, leg) =>
-      sum + (legCosts.get(leg.id) ?? 0) / (occupantsByLeg.get(leg.id) ?? 1), 0)
+    const fuelCost = assignedLegs.reduce((sum, leg) => {
+      const cost = legCosts.get(leg.id) ?? 0
+      const riders = draft.people.filter((candidate) => candidate.assignedLegIds.includes(leg.id))
+      const rule = (draft.allocationRules ?? []).find((candidate) => candidate.legId === leg.id)
+      if (!rule || rule.mode === 'equal') return sum + cost / riders.length
+      const value = rule.shares.find((share) => share.personId === person.id)?.value ?? 0
+      if (rule.mode === 'percentages') return sum + cost * value / 100
+      if (rule.mode === 'weights') {
+        const totalWeight = rule.shares.reduce((total, share) => total + share.value, 0)
+        return sum + cost * value / totalWeight
+      }
+      const fixedTotal = rule.shares.reduce((total, share) => total + share.value, 0)
+      const flexible = riders.filter((rider) => !rule.shares.some((share) => share.personId === rider.id))
+      return sum + (rule.shares.some((share) => share.personId === person.id) ? value : Math.max(0, cost - fixedTotal) / Math.max(1, flexible.length))
+    }, 0)
     const expenseCost = expenseShares.get(person.id) ?? 0
     return {
       personId: person.id,
@@ -155,5 +176,5 @@ export function calculateTrip(draft: TripDraft): TripResult {
   const fractionDigits = getCurrencyFractionDigits(draft.fuelSettings.currency)
   const people = reconcileDisplayCosts(rawPeople, totalCost, fractionDigits)
 
-  return { totalDistanceKm, totalLitres, totalCost, totalFuelCost, totalAdditionalCost, people, unassignedLegIds, unassignedExpenseIds }
+  return { totalDistanceKm, totalLitres, totalCost, totalFuelCost, totalAdditionalCost, people, unassignedLegIds, unassignedExpenseIds, allocationRules }
 }

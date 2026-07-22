@@ -14,7 +14,9 @@ function representativeTrip() {
 
 describe('editable trip sharing', () => {
   it('round trips trip inputs and units without local metadata', () => {
-    const serialized = serializeEditableTrip(representativeTrip(), 'Evening ride', 'imperial')
+    const draft = representativeTrip()
+    draft.allocationRules = [{ legId: 'l1', mode: 'percentages', shares: [{ personId: 'p1', value: 100 }] }]
+    const serialized = serializeEditableTrip(draft, 'Evening ride', 'imperial')
     expect(serialized).not.toContain('updatedAt')
     expect(serialized).not.toContain('p1')
     const imported = deserializeEditableTrip(serialized)
@@ -22,6 +24,7 @@ describe('editable trip sharing', () => {
     expect(imported.unitSystem).toBe('imperial')
     expect(imported.draft.stops.map(({ name }) => name)).toEqual(['Home', 'Café'])
     expect(imported.draft.people[0].assignedLegIds).toEqual([imported.draft.legs[0].id])
+    expect(imported.draft.allocationRules).toEqual([{ legId: imported.draft.legs[0].id, mode: 'percentages', shares: [{ personId: imported.draft.people[0].id, value: 100 }] }])
   })
 
   it('encodes unicode payloads in an editable link', () => {

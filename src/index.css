@@ -195,8 +195,9 @@ html[data-theme="dark"] footer { border-color: #293b35; color: #82938c; }
 
 /* Semantic surfaces shared by editor cards, libraries, dialogs, and controls. */
 .expense-row, .return-stops, .leg-row, .route-overview, .import-preview, .map-attribution { background: var(--color-elevated); }
-.assignment-card, .trip-card { background: var(--color-card); }
-.expense-row, .assignment-card, .preset-row, .trip-card, .suggestion-list label { border-color: var(--color-border); }
+.assignment-card, .trip-card, .desktop-allocation-list > section { background: var(--color-card); }
+.expense-row, .assignment-card, .desktop-allocation-list > section, .preset-row, .trip-card, .suggestion-list label { border-color: var(--color-border); }
+.allocation-editor summary { color: var(--color-accent); }
 .workflow-nav { border-color: var(--color-border); background: color-mix(in srgb, var(--color-panel) 95%, transparent); }
 .workflow-nav button, .workflow-nav a { color: var(--color-accent); }
 .workflow-nav button:hover, .workflow-nav a:hover { background: var(--color-accent-hover); }

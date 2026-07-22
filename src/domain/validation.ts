@@ -40,6 +40,12 @@ const personSchema = z.object({
   assignedLegIds: z.array(idSchema),
 })
 
+const allocationRuleSchema = z.object({
+  legId: idSchema,
+  mode: z.enum(['equal', 'weights', 'percentages', 'fixed']),
+  shares: z.array(z.object({ personId: idSchema, value: z.number().finite().nonnegative() })),
+})
+
 const expenseSchema = z.object({
   id: idSchema,
   name: z.string().trim(),
@@ -63,6 +69,7 @@ const tripShapeSchema = z.object({
   people: z.array(personSchema),
   fuelSettings: fuelSettingsSchema,
   expenses: z.array(expenseSchema).default([]),
+  allocationRules: z.array(allocationRuleSchema).default([]),
   updatedAt: z.iso.datetime(),
 })
 
@@ -96,6 +103,19 @@ function validateReferences(
   const stopIds = new Set(draft.stops.map(({ id }) => id))
   const legIds = new Set(draft.legs.map(({ id }) => id))
   const personIds = new Set(draft.people.map(({ id }) => id))
+
+  const ruleLegIds = new Set<string>()
+  draft.allocationRules.forEach((rule, ruleIndex) => {
+    if (!legIds.has(rule.legId)) context.addIssue({ code: 'custom', message: 'Allocation rule references an unknown leg', path: ['allocationRules', ruleIndex, 'legId'] })
+    if (ruleLegIds.has(rule.legId)) context.addIssue({ code: 'custom', message: 'A leg can only have one allocation rule', path: ['allocationRules', ruleIndex, 'legId'] })
+    ruleLegIds.add(rule.legId)
+    const sharePeople = new Set<string>()
+    rule.shares.forEach((share, shareIndex) => {
+      if (!personIds.has(share.personId)) context.addIssue({ code: 'custom', message: 'Allocation references an unknown person', path: ['allocationRules', ruleIndex, 'shares', shareIndex, 'personId'] })
+      if (sharePeople.has(share.personId)) context.addIssue({ code: 'custom', message: 'A rider can only have one share per leg', path: ['allocationRules', ruleIndex, 'shares', shareIndex, 'personId'] })
+      sharePeople.add(share.personId)
+    })
+  })
 
   draft.legs.forEach((leg, index) => {
     if (!stopIds.has(leg.fromStopId)) {
@@ -180,6 +200,20 @@ export const tripDraftSchema = tripShapeSchema.superRefine((draft, context) => {
     if (expense.scope === 'people' && expense.personIds.length === 0) context.addIssue({ code: 'custom', message: 'Select at least one person for this expense', path: ['expenses', index, 'personIds'] })
   })
 
+  draft.allocationRules.forEach((rule, index) => {
+    const riders = draft.people.filter((person) => person.assignedLegIds.includes(rule.legId))
+    const riderIds = new Set(riders.map(({ id }) => id))
+    if (rule.shares.some(({ personId }) => !riderIds.has(personId))) context.addIssue({ code: 'custom', message: 'Shares can only be set for riders assigned to this leg', path: ['allocationRules', index, 'shares'] })
+    if (rule.mode === 'weights' && rule.shares.reduce((sum, share) => sum + share.value, 0) <= 0) context.addIssue({ code: 'custom', message: 'Weights must include at least one positive share', path: ['allocationRules', index, 'shares'] })
+    if (rule.mode === 'percentages' && Math.abs(rule.shares.reduce((sum, share) => sum + share.value, 0) - 100) > 0.000001) context.addIssue({ code: 'custom', message: 'Percentages must add up to exactly 100%', path: ['allocationRules', index, 'shares'] })
+    if (rule.mode === 'fixed') {
+      const leg = draft.legs.find(({ id }) => id === rule.legId)
+      const cost = leg?.distanceKm && draft.fuelSettings.fuelEconomyKmpl && draft.fuelSettings.fuelPricePerLitre ? leg.distanceKm / draft.fuelSettings.fuelEconomyKmpl * draft.fuelSettings.fuelPricePerLitre : null
+      const fixedTotal = rule.shares.reduce((sum, share) => sum + share.value, 0)
+      if (cost !== null && (fixedTotal > cost + 0.000001 || (rule.shares.length === riders.length && Math.abs(fixedTotal - cost) > 0.000001))) context.addIssue({ code: 'custom', message: rule.shares.length === riders.length ? 'Fixed contributions must add up to the leg cost' : 'Fixed contributions cannot exceed the leg cost', path: ['allocationRules', index, 'shares'] })
+    }
+  })
+
   draft.legs.forEach((leg, index) => {
     if (leg.distanceKm === null) {
       context.addIssue({ code: 'custom', message: 'Distance must be a positive number', path: ['legs', index, 'distanceKm'] })
@@ -220,6 +254,11 @@ export const editableTripDraftSchema = z.preprocess((input) => {
     draft.expenses = draft.expenses.map((expense) => typeof expense === 'object' && expense !== null
       ? { ...expense, amount: toNumber((expense as Record<string, unknown>).amount) }
       : expense)
+  }
+  if (Array.isArray(draft.allocationRules)) {
+    draft.allocationRules = draft.allocationRules.map((rule) => typeof rule === 'object' && rule !== null
+      ? { ...rule, shares: Array.isArray((rule as Record<string, unknown>).shares) ? ((rule as Record<string, unknown>).shares as Array<Record<string, unknown>>).map((share) => ({ ...share, value: toNumber(share.value) })) : [] }
+      : rule)
   }
   if (typeof draft.fuelSettings === 'object' && draft.fuelSettings !== null) {
     const settings = draft.fuelSettings as Record<string, unknown>

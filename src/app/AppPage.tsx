@@ -71,7 +71,7 @@ export function AppPage() {
   const currencies = useMemo(() => currencyOptions(), [])
   const hasResult = result !== null
   const resultsVisible = useElementVisibility(resultsRef, hasResult)
-  const { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments, copyPreviousLegDistance, copyPreviousLegAssignments } = useTripEditor(draft, setDraft)
+  const { stopsById, update, changeStops, addStop, returnToStop, makeRoundTrip, reuseLegDistanceForBlankReverse, moveStop, addPerson, setLegAssignment, setAllLegAssignments, copyPreviousLegDistance, copyPreviousLegAssignments, setAllocationRule } = useTripEditor(draft, setDraft)
   const { mapDialog, setMapDialog, fromSuggestions, toSuggestions, selectedFrom, setSelectedFrom, selectedTo, setSelectedTo, mapStatus, mapError, showMapDialog, findPlaces, applyRoadDistance } = useRouteLookup(draft, update, stopsById)
   const overlayOpen = resetDialogOpen || Boolean(tripDialog || vehicleDialog || mapDialog || importPreview)
   const libraryRef = useModalFocus(libraryOpen && mobileAssignments && !overlayOpen, () => setLibraryOpen(false))
@@ -342,6 +342,7 @@ export function AppPage() {
         ...expense,
         personIds: expense.personIds.filter((id) => id !== personId),
       })),
+      allocationRules: (draft.allocationRules ?? []).map((rule) => ({ ...rule, shares: rule.shares.filter((share) => share.personId !== personId) })),
     })
   }
 
@@ -569,7 +570,7 @@ export function AppPage() {
           </div>
 
           <aside className={layout('results-column')}>
-            <AssignmentPanel draft={draft} mobile={mobileAssignments} stopsById={stopsById} onSetAssignment={setLegAssignment} onSetAllAssignments={setAllLegAssignments} onCopyPreviousAssignments={copyLegAssignments} />
+            <AssignmentPanel draft={draft} mobile={mobileAssignments} stopsById={stopsById} onSetAssignment={setLegAssignment} onSetAllAssignments={setAllLegAssignments} onCopyPreviousAssignments={copyLegAssignments} onSetAllocationRule={setAllocationRule} />
 
             <ResultsPanel draft={draft} result={result} unitSystem={unitSystem} stopsById={stopsById} panelRef={resultsRef} shareStatus={shareStatus} shareError={shareError} shareMessageCopied={shareMessageCopied} onReveal={revealResults} onShare={() => void shareResult()} />
           </aside>

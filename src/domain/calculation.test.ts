@@ -115,6 +115,22 @@ describe('calculateTrip', () => {
     expect(result.people.map(({ displayCost }) => displayCost)).toEqual([34, 33, 33])
   })
 
+  it.each([
+    ['weights', [{ personId: 'p1', value: 1 }, { personId: 'p2', value: 0.5 }], [66.67, 33.33]],
+    ['percentages', [{ personId: 'p1', value: 25 }, { personId: 'p2', value: 75 }], [25, 75]],
+    ['fixed', [{ personId: 'p1', value: 30 }], [30, 70]],
+  ] as const)('supports %s allocation and reconciles exactly', (mode, shares, expected) => {
+    const result = calculateTrip(draft({ people: [{ id: 'p1', name: 'Driver', assignedLegIds: ['ab'] }, { id: 'p2', name: 'Rider', assignedLegIds: ['ab'] }], allocationRules: [{ legId: 'ab', mode, shares: [...shares] }] }))
+    expect(result.people.map(({ displayCost }) => displayCost)).toEqual(expected)
+    expect(result.people.reduce((sum, person) => sum + person.displayCost, 0)).toBe(result.totalCost)
+    expect(result.allocationRules[0].description).not.toBe('Equal split')
+  })
+
+  it('supports excluding the driver with a zero weight', () => {
+    const result = calculateTrip(draft({ people: [{ id: 'p1', name: 'Driver', assignedLegIds: ['ab'] }, { id: 'p2', name: 'Rider', assignedLegIds: ['ab'] }], allocationRules: [{ legId: 'ab', mode: 'weights', shares: [{ personId: 'p1', value: 0 }, { personId: 'p2', value: 1 }] }] }))
+    expect(result.people.map(({ displayCost }) => displayCost)).toEqual([0, 100])
+  })
+
   it('allocates journey, leg, and selected-rider expenses and reconciles the combined total', () => {
     const result = calculateTrip(draft({
       people: [

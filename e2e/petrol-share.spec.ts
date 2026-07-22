@@ -962,3 +962,50 @@ test('uses consistent design-system controls and organized saved-trip actions', 
     await library.getByRole('button', { name: 'Close saved trips' }).click()
   }
 })
+
+test('configures, validates, persists, and explains flexible rider shares', async ({ page }, testInfo) => {
+  test.setTimeout(90_000)
+  await page.getByLabel('Stop 1 name').fill('Home')
+  await page.getByLabel('Stop 2 name').fill('Office')
+  await page.getByLabel('Distance from Home to Office in kilometres').fill('10')
+  await page.getByLabel('Fuel economy').fill('10')
+  await page.getByLabel('Price per litre').fill('100')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 1 name').fill('Driver')
+  await page.getByRole('button', { name: 'Add person' }).click()
+  await page.getByLabel('Person 2 name').fill('Asha')
+  await page.getByLabel('Driver rode from Home to Office').check()
+  await page.getByLabel('Asha rode from Home to Office').check()
+
+  const assignment = page.locator('#assignments')
+  await assignment.getByText('Split rule: Equal split').click()
+  await assignment.getByRole('button', { name: 'Percent', exact: true }).click()
+  await page.getByLabel('Driver percentage for this leg').fill('25')
+  await expect(assignment.getByText(/75% allocated — must equal 100%/)).toBeVisible()
+  await expect(page.locator('#results')).toContainText('Complete the trip details')
+  await page.getByLabel('Asha percentage for this leg').fill('75')
+  await expect(assignment.getByText('100% allocated')).toBeVisible()
+  await expect(page.locator('#results').getByText('₹25.00', { exact: true })).toBeVisible()
+  await expect(page.locator('#results').getByText('₹75.00', { exact: true })).toBeVisible()
+  await page.locator('#results').getByText('How this was calculated').click()
+  await expect(page.locator('#results')).toContainText('Percentages: Driver 25%, Asha 75%')
+
+  await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel('Driver percentage for this leg')).toHaveValue('25')
+  await expect(page.getByLabel('Asha percentage for this leg')).toHaveValue('75')
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await expect(assignment).toBeVisible()
+      const splitRule = assignment.getByText('Split rule: Percentages')
+      if (!(await splitRule.evaluate((element) => element.parentElement?.hasAttribute('open')))) await splitRule.click()
+      await assignment.evaluate((element) => window.scrollTo({ top: Math.max(0, element.getBoundingClientRect().top + window.scrollY - 100), behavior: 'instant' }))
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await page.locator('.floating-action-stack').evaluate((element: HTMLElement) => { element.style.display = 'none' })
+      await assignment.screenshot({ path: testInfo.outputPath(`flexible-shares-${theme}-${width}.png`) })
+    }
+  }
+})

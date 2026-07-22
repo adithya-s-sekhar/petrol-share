@@ -20,6 +20,11 @@ const portableTripSchema = z.object({
       name: z.string().max(200),
       assignedLegIndexes: z.array(z.number().int().nonnegative()).max(99),
     })).max(100),
+    allocationRules: z.array(z.object({
+      legIndex: z.number().int().nonnegative(),
+      mode: z.enum(['equal', 'weights', 'percentages', 'fixed']),
+      shares: z.array(z.object({ personIndex: z.number().int().nonnegative(), value: z.number().finite().nonnegative() })).max(100),
+    })).max(99).optional().default([]),
     expenses: z.array(z.object({
       name: z.string().max(200),
       amount: z.number().finite().positive().nullable(),
@@ -46,6 +51,10 @@ const portableTripSchema = z.object({
   payload.trip.expenses.forEach((expense, expenseIndex) => {
     if (expense.scope === 'leg' && (expense.legIndex === undefined || expense.legIndex >= payload.trip.legs.length)) context.addIssue({ code: 'custom', message: 'Expense references an unknown leg', path: ['trip', 'expenses', expenseIndex, 'legIndex'] })
     if (new Set(expense.personIndexes).size !== expense.personIndexes.length || expense.personIndexes.some((index) => index >= payload.trip.people.length)) context.addIssue({ code: 'custom', message: 'Expense references an unknown rider', path: ['trip', 'expenses', expenseIndex, 'personIndexes'] })
+  })
+  payload.trip.allocationRules.forEach((rule, ruleIndex) => {
+    if (rule.legIndex >= payload.trip.legs.length) context.addIssue({ code: 'custom', message: 'Allocation references an unknown leg', path: ['trip', 'allocationRules', ruleIndex, 'legIndex'] })
+    if (rule.shares.some(({ personIndex }) => personIndex >= payload.trip.people.length)) context.addIssue({ code: 'custom', message: 'Allocation references an unknown rider', path: ['trip', 'allocationRules', ruleIndex, 'shares'] })
   })
 })
 
@@ -89,6 +98,11 @@ export function serializeEditableTrip(draft: TripDraft, name: string, unitSystem
         name: personName,
         assignedLegIndexes: assignedLegIds.map((legId) => legIndexes.get(legId)).filter((index): index is number => index !== undefined),
       })),
+      allocationRules: (draft.allocationRules ?? []).map((rule) => ({
+        legIndex: legIndexes.get(rule.legId),
+        mode: rule.mode,
+        shares: rule.shares.map((share) => ({ personIndex: personIndexes.get(share.personId), value: share.value })).filter((share): share is { personIndex: number; value: number } => share.personIndex !== undefined),
+      })).filter((rule): rule is typeof rule & { legIndex: number } => rule.legIndex !== undefined),
       expenses: (draft.expenses ?? []).map(({ name: expenseName, amount, scope, legId, personIds }) => ({
         name: expenseName,
         amount,
@@ -118,10 +132,12 @@ export function deserializeEditableTrip(serialized: string): EditableTripImport 
     legs: parsed.data.trip.legs.map((leg, index) => ({ id: legIds[index], fromStopId: stopIds[index], toStopId: stopIds[index + 1], ...leg })),
     people: parsed.data.trip.people.map((person) => ({ id: id(), name: person.name, assignedLegIds: person.assignedLegIndexes.map((index) => legIds[index]) })),
     expenses: [],
+    allocationRules: [],
     fuelSettings: parsed.data.trip.fuelSettings,
     updatedAt: new Date().toISOString(),
   }
   const personIds = draft.people.map(({ id: personId }) => personId)
+  draft.allocationRules = parsed.data.trip.allocationRules.map((rule) => ({ legId: legIds[rule.legIndex], mode: rule.mode, shares: rule.shares.map((share) => ({ personId: personIds[share.personIndex], value: share.value })) }))
   draft.expenses = parsed.data.trip.expenses.map((expense) => ({
     id: id(), name: expense.name, amount: expense.amount, scope: expense.scope,
     ...(expense.legIndex === undefined ? {} : { legId: legIds[expense.legIndex] }),

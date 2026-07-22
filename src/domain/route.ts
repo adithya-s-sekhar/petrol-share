@@ -86,5 +86,6 @@ export function normalizeTripRoute(
   const expenses = (draft.expenses ?? []).map((expense) => expense.scope === 'leg' && expense.legId && !retainedLegIds.has(expense.legId)
     ? { ...expense, legId: undefined }
     : expense)
-  return { ...draft, stops: [...stops], ...normalized, expenses }
+  const allocationRules = (draft.allocationRules ?? []).filter((rule) => retainedLegIds.has(rule.legId))
+  return { ...draft, stops: [...stops], ...normalized, expenses, allocationRules }
 }
