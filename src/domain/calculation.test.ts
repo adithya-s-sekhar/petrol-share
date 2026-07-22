@@ -21,6 +21,13 @@ function draft(overrides: Partial<TripDraft> = {}): TripDraft {
   }
 }
 
+describe('formatCurrency', () => {
+  it('keeps draft views renderable while a currency code is incomplete', () => {
+    expect(formatCurrency(12.5, '', { locale: 'en-US' })).toBe('12.5')
+    expect(formatCurrency(12.5, 'US', { locale: 'en-US' })).toBe('12.5')
+  })
+})
+
 describe('calculateTrip', () => {
   it('calculates a single-leg journey and divides it equally', () => {
     const result = calculateTrip(draft({
